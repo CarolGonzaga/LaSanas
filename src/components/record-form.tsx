@@ -496,7 +496,13 @@ export function RecordForm({
                       (p) => p.id === e.target.value,
                     );
                     if (pack) {
-                      setValue("total_value", String(pack.package_price));
+                      setValue(
+                        "total_value",
+                        String(
+                          Number(pack.package_price) *
+                            Number(pack.duration_months),
+                        ),
+                      );
                       setValue("proposal_type", "loyalty");
                     }
                   }
@@ -614,6 +620,46 @@ export function RecordForm({
                                     String(book.publisher_id ?? ""),
                                   );
                               }
+                            }
+                            if (f.name === "opportunity_id" && id) {
+                              const opportunity = data.opportunities?.find(
+                                (item) => item.id === id,
+                              );
+                              if (opportunity) {
+                                setValue(
+                                  "author_id",
+                                  String(opportunity.author_id ?? ""),
+                                );
+                                setValue(
+                                  "publisher_id",
+                                  String(opportunity.publisher_id ?? ""),
+                                );
+                                setValue(
+                                  "book_id",
+                                  String(opportunity.book_id ?? ""),
+                                );
+                                setValue(
+                                  "responsible_user_id",
+                                  String(opportunity.responsible_user_id ?? ""),
+                                );
+                                setValue(
+                                  "proposal_type",
+                                  String(opportunity.proposal_type ?? "custom"),
+                                );
+                              }
+                            }
+                            if (f.name === "service_package_id" && id) {
+                              const pack = data.service_packages?.find(
+                                (item) => item.id === id,
+                              );
+                              if (pack && !row?.total_value)
+                                setValue(
+                                  "total_value",
+                                  String(
+                                    Number(pack.package_price) *
+                                      Number(pack.duration_months),
+                                  ),
+                                );
                             }
                           }}
                         />

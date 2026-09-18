@@ -898,6 +898,13 @@ export const modules: Module[] = [
         source: "service_types",
       },
       {
+        name: "book_id",
+        label: "Livro relacionado",
+        type: "relation",
+        required: false,
+        source: "books",
+      },
+      {
         name: "quantity_per_month",
         label: "Quantidade por mês",
         type: "integer",

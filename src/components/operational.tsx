@@ -441,9 +441,11 @@ export function OperationalDashboard({
               </div>
               <div>
                 <strong>
-                  {activeOpportunities.filter(
-                    (opportunity) => opportunity.status === "contacted",
-                  ).length}
+                  {
+                    activeOpportunities.filter(
+                      (opportunity) => opportunity.status === "contacted",
+                    ).length
+                  }
                 </strong>
                 <span>Contato realizado</span>
               </div>
@@ -552,9 +554,10 @@ export function UnifiedAgenda({
     [assigned, setAssigned] = useState(""),
     [client, setClient] = useState("");
   const now = today();
-  const end = new Date(now + "T12:00:00");
-  end.setDate(end.getDate() + Number(range));
-  const through = end.toISOString().slice(0, 10);
+  const numericRange = range === "7" || range === "30" ? Number(range) : null;
+  const end = numericRange === null ? null : new Date(now + "T12:00:00");
+  if (end) end.setDate(end.getDate() + (numericRange ?? 0));
+  const through = end?.toISOString().slice(0, 10) ?? null;
   const rows = eventsFor(data).filter(
     (e) =>
       (range === "all" || !e.done) &&
@@ -562,7 +565,7 @@ export function UnifiedAgenda({
         ? range === "all" || (!!e.date && e.date < now)
         : range === "today"
           ? e.date === now
-          : e.date >= now && e.date <= through) &&
+          : !!through && e.date >= now && e.date <= through) &&
       (!kind || e.group === kind) &&
       (!assigned || e.assigned === assigned) &&
       (!client || e.client === client),
