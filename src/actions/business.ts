@@ -221,7 +221,6 @@ export async function saveRecord(
           size_bytes: file.size,
         });
     }
-    if (!id && table === "media_kits") values.active = false;
     const query = id
       ? db
           .from(table)
@@ -282,8 +281,13 @@ export async function saveRecord(
     return { ok: true, id: data?.id, message: "Registro salvo com sucesso." };
   } catch (e) {
     if (uploaded) {
-      const { db } = await requireContext();
-      await db.storage.from("business-assets").remove([uploaded]);
+      try {
+        const { db } = await requireContext();
+        await db.storage.from("business-assets").remove([uploaded]);
+      } catch {
+        // A falha principal deve chegar ao formulário, mesmo que a limpeza seja
+        // temporariamente indisponível.
+      }
     }
     return failure(e);
   }
