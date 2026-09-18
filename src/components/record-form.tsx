@@ -51,6 +51,7 @@ export function RecordForm({
   row,
   open,
   onClose,
+  onSaved,
   data,
   readOnly = false,
 }: {
@@ -58,6 +59,7 @@ export function RecordForm({
   row?: Partial<Row>;
   open: boolean;
   onClose: () => void;
+  onSaved?: (id: string) => void;
   data: Dataset;
   readOnly?: boolean;
 }) {
@@ -122,6 +124,7 @@ export function RecordForm({
       toast.success(result.message);
       router.refresh();
       onClose();
+      if (result.id) onSaved?.(result.id);
     } catch {
       toast.error("Não foi possível salvar. Verifique a conexão.");
     }

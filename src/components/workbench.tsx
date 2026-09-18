@@ -64,6 +64,7 @@ export function Workbench({
   const [editor, setEditor] = useState<{
     table: string;
     row?: Partial<Row>;
+    onSaved?: (id: string) => void;
   } | null>(null);
   const [query, setQuery] = useState(""),
     [filter, setFilter] = useState(""),
@@ -87,7 +88,11 @@ export function Workbench({
   const mod = moduleByRoute(route);
   const record =
     mod && id ? data[mod.table]?.find((r) => r.id === id) : undefined;
-  const edit = (table: string, row?: Partial<Row>) => setEditor({ table, row });
+  const edit = (
+    table: string,
+    row?: Partial<Row>,
+    onSaved?: (id: string) => void,
+  ) => setEditor({ table, row, onSaved });
   const href = (table: string, id?: string) =>
     prefix + "/" + moduleByTable(table)!.route + (id ? "/" + id : "");
   const relatedLabel = (table: string, id: unknown) => {
@@ -821,7 +826,35 @@ export function Workbench({
                   <Plus size={16} /> Adicionar
                 </button>
               )}
+              {relatedTab.table === "campaign_services" &&
+                ["authors", "publishers"].includes(m.table) && (
+                  <button
+                    className="button small"
+                    onClick={() =>
+                      edit(
+                        "campaigns",
+                        {
+                          name: "Parceria • " + labelOf(r, m.table),
+                          [m.table === "authors" ? "author_id" : "publisher_id"]:
+                            r.id,
+                          responsible_user_id: userId,
+                          total_value: 0,
+                        },
+                        (campaignId) => router.push(href("campaigns", campaignId)),
+                      )
+                    }
+                  >
+                    <Plus size={16} /> Adicionar serviço
+                  </button>
+                )}
             </div>
+            {relatedTab.table === "campaign_services" &&
+              ["authors", "publishers"].includes(m.table) && (
+                <p className="section-help">
+                  Primeiro registre a parceria; em seguida, inclua o serviço e
+                  deixe a execução como “Data a confirmar” se necessário.
+                </p>
+              )}
             {cards(relatedTab.table, relatedTab.rows, true)}
           </section>
         ) : null}
@@ -1131,6 +1164,7 @@ export function Workbench({
           data={data}
           open
           onClose={() => setEditor(null)}
+          onSaved={editor.onSaved}
           readOnly={readOnly}
         />
       )}

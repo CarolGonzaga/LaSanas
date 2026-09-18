@@ -929,6 +929,16 @@ input[type="checkbox"] {
   height: 100%;
   object-fit: cover;
 }
+.record-list .book-card-cover {
+  width: 72px;
+  height: 108px;
+  aspect-ratio: auto;
+}
+.section-help {
+  color: var(--muted);
+  font-size: 12px;
+  margin: -8px 0 16px;
+}
 .book-summary {
   display: flex;
   gap: 18px;
