@@ -732,7 +732,16 @@ export function RecordForm({
                         ? "image/png,image/jpeg,image/webp"
                         : "image/png,image/jpeg,image/webp,application/pdf"
                   }
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) => {
+                    const selected = e.target.files?.[0] ?? null;
+                    if (selected && selected.size > 3 * 1024 * 1024) {
+                      e.target.value = "";
+                      setFile(null);
+                      toast.error("O arquivo deve ter no máximo 3 MB.");
+                      return;
+                    }
+                    setFile(selected);
+                  }}
                 />
               </label>
             )}
