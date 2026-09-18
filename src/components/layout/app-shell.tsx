@@ -24,7 +24,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { modules, primaryModules, labelOf } from "@/lib/modules";
+import { modules, primaryModules, labelOf, memberLabel } from "@/lib/modules";
 import type { Dataset } from "@/lib/workspace";
 import { toast } from "sonner";
 import { selectWorkspace } from "@/actions/business";
@@ -65,6 +65,7 @@ export function AppShell({
   data = {},
   preview = false,
   homeView = "management",
+  userId,
 }: {
   children: React.ReactNode;
   email: string;
@@ -72,6 +73,7 @@ export function AppShell({
   data?: Dataset;
   preview?: boolean;
   homeView?: string;
+  userId?: string;
 }) {
   const path = usePathname(),
     router = useRouter();
@@ -79,6 +81,11 @@ export function AppShell({
     [searchOpen, setSearchOpen] = useState(false),
     [query, setQuery] = useState("");
   const prefix = preview ? "/preview" : "";
+  const currentProfile = data.profiles?.find((profile) => profile.id === userId);
+  const avatarUrl = String(currentProfile?.avatar_preview_url ?? currentProfile?.avatar_url ?? "");
+  const avatarInitial = (currentProfile ? memberLabel(currentProfile) : email || "L")
+    .slice(0, 1)
+    .toUpperCase();
   const results = primaryModules
     .flatMap((table) =>
       (data[table] ?? [])
@@ -156,8 +163,8 @@ export function AppShell({
         ))}
       </nav>
       <div className="sidebar-bottom">
-        <span className="avatar">
-          {(email || "L").slice(0, 1).toUpperCase()}
+        <span className={"avatar" + (avatarUrl ? " has-image" : "")} style={avatarUrl ? { backgroundImage: `url("${avatarUrl}")` } : undefined}>
+          {!avatarUrl && avatarInitial}
         </span>
         <div>
           <strong>{email?.split("@")[0] || "Prévia local"}</strong>
@@ -206,8 +213,8 @@ export function AppShell({
               <span>Buscar no workspace</span>
             </button>
             <ThemeToggle />
-            <span className="avatar small-avatar">
-              {(email || "L").slice(0, 1).toUpperCase()}
+            <span className={"avatar small-avatar" + (avatarUrl ? " has-image" : "")} style={avatarUrl ? { backgroundImage: `url("${avatarUrl}")` } : undefined}>
+              {!avatarUrl && avatarInitial}
             </span>
           </div>
         </header>

@@ -22,6 +22,7 @@ import {
   removeRecord,
   assetUrl,
   saveRecord,
+  saveMyProfile,
   saveWorkspaceSettings,
 } from "@/actions/business";
 import {
@@ -30,6 +31,7 @@ import {
   moduleByRoute,
   options,
   labelOf,
+  memberLabel,
   type Row,
   type Module,
 } from "@/lib/modules";
@@ -398,7 +400,7 @@ export function Workbench({
     if (f?.type === "relation") return relatedLabel(f.source!, value);
     if (f?.type === "member") {
       const p = data.profiles?.find((p) => p.id === value);
-      return String(p?.full_name || p?.email || "—");
+      return memberLabel(p);
     }
     if (f?.type === "select")
       return options[f.source!]?.[String(value)] ?? String(value);
@@ -1057,12 +1059,23 @@ export function Workbench({
   }
   function settings() {
     const defaultProductionUserId = String(data.workspace_settings?.[0]?.default_production_user_id ?? "");
+    const currentProfile = data.profiles?.find((profile) => profile.id === userId);
+    const avatarUrl = String(currentProfile?.avatar_preview_url ?? currentProfile?.avatar_url ?? "");
     const updateSettings = (input: { defaultProductionUserId: string | null; memberId?: string; homeView?: string }) => start(async () => {
       if (readOnly) {
         toast.info("Entre com sua conta para salvar dados reais.");
         return;
       }
       const result = await saveWorkspaceSettings(input);
+      if (result.ok) { toast.success(result.message); router.refresh(); } else toast.error(result.message);
+    });
+    const updateProfile = (form: HTMLFormElement) => start(async () => {
+      if (readOnly) { toast.info("Entre com sua conta para salvar dados reais."); return; }
+      const dataForm = new FormData(form);
+      const result = await saveMyProfile(
+        { username: String(dataForm.get("username") ?? "") },
+        dataForm,
+      );
       if (result.ok) { toast.success(result.message); router.refresh(); } else toast.error(result.message);
     });
     return (
@@ -1080,6 +1093,18 @@ export function Workbench({
             <p className="muted">
               {workspace?.name ?? "Workspace não configurado"}
             </p>
+            <form className="profile-form" onSubmit={(event) => { event.preventDefault(); updateProfile(event.currentTarget); }}>
+              <div className={"avatar profile-avatar" + (avatarUrl ? " has-image" : "")} style={avatarUrl ? { backgroundImage: `url("${avatarUrl}")` } : undefined}>
+                {!avatarUrl && memberLabel(currentProfile).slice(0, 1).toUpperCase()}
+              </div>
+              <label>Nome de usuário
+                <input name="username" defaultValue={String(currentProfile?.username ?? "")} placeholder="ana.organiza" minLength={2} maxLength={40} required />
+              </label>
+              <label>Imagem do avatar
+                <input name="avatar" type="file" accept="image/png,image/jpeg,image/webp" />
+              </label>
+              <button className="small-button" disabled={busy}>Salvar perfil</button>
+            </form>
             <h2>Aparência</h2>
             <ThemeSelect />
           </section>
@@ -1088,7 +1113,7 @@ export function Workbench({
             <label className="settings-select">Responsável padrão pela produção
               <select value={defaultProductionUserId} disabled={workspace?.role !== "admin" || busy} onChange={(event) => updateSettings({ defaultProductionUserId: event.target.value || null })}>
                 <option value="">Nenhuma responsável definida</option>
-                {(data.profiles ?? []).filter((profile) => profile.active).map((profile) => <option key={profile.id} value={profile.id}>{String(profile.full_name || profile.email)}</option>)}
+                {(data.profiles ?? []).filter((profile) => profile.active).map((profile) => <option key={profile.id} value={profile.id}>{memberLabel(profile)}</option>)}
               </select>
             </label>
             {data.profiles?.map((p) => (

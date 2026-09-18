@@ -1631,3 +1631,5 @@ export const labelOf = (row: Row, table: string): string => {
     ? label + " — " + String(row.year)
     : label;
 };
+export const memberLabel = (member?: Partial<Row> | null) =>
+  String(member?.username || member?.full_name || member?.email || "—");

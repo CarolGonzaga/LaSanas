@@ -18,6 +18,7 @@ import {
   isActiveOpportunity,
   moduleByTable,
   options,
+  memberLabel,
   type Row,
 } from "@/lib/modules";
 import { money, date, today } from "@/lib/format";
@@ -651,7 +652,7 @@ export function UnifiedAgenda({
           <option value="">Todas as responsáveis</option>
           {data.profiles?.map((p) => (
             <option key={p.id} value={p.id}>
-              {String(p.full_name || p.email)}
+              {memberLabel(p)}
             </option>
           ))}
         </select>

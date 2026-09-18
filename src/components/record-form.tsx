@@ -8,7 +8,7 @@ import { saveRecord } from "@/actions/business";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
-import { options, moduleByTable, labelOf, type Row } from "@/lib/modules";
+import { options, moduleByTable, labelOf, memberLabel, type Row } from "@/lib/modules";
 import type { Dataset } from "@/lib/workspace";
 import { today } from "@/lib/format";
 
@@ -670,7 +670,7 @@ export function RecordForm({
                           : choices.map((c) => (
                               <option key={c.id} value={c.id}>
                                 {f.type === "member"
-                                  ? String(c.full_name || c.email)
+                                  ? memberLabel(c)
                                   : labelOf(c, f.source!)}
                               </option>
                             ))}

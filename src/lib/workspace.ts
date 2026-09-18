@@ -89,7 +89,7 @@ export async function loadWorkspace() {
   );
   const { data: members, error } = await ctx.db
     .from("workspace_members")
-    .select("user_id,role,active,profiles(id,full_name,email)")
+    .select("user_id,role,active,profiles(id,full_name,email,username,avatar_url)")
     .eq("workspace_id", ctx.workspace.id);
   if (error) throw new Error(error.message);
   const team = (members ?? []).map((m) => ({
@@ -113,6 +113,19 @@ export async function loadWorkspace() {
       ? [{ id: ctx.workspace.id, workspace_id: ctx.workspace.id, default_production_user_id: ctx.workspace.defaultProductionUserId ?? null }]
       : [],
   } as Dataset;
+  const avatars = (dataset.profiles ?? []).filter(
+    (profile) =>
+      profile.avatar_url &&
+      !/^https?:\/\//i.test(String(profile.avatar_url)),
+  );
+  if (avatars.length) {
+    const { data: signed } = await ctx.db.storage
+      .from("business-assets")
+      .createSignedUrls(avatars.map((profile) => String(profile.avatar_url)), 600);
+    signed?.forEach((url, index) => {
+      if (url.signedUrl) avatars[index].avatar_preview_url = url.signedUrl;
+    });
+  }
   for (const table of ["books", "client_assets"]) {
     for (const bucket of ["business-assets", "client-assets"]) {
       const images = dataset[table].filter(

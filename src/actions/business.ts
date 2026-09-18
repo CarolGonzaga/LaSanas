@@ -316,6 +316,57 @@ export async function saveWorkspaceSettings(input: unknown): Promise<Result> {
     return { ok: true, message: "Configurações da equipe atualizadas." };
   } catch (error) { return failure(error); }
 }
+export async function saveMyProfile(
+  input: unknown,
+  upload?: FormData,
+): Promise<Result> {
+  let uploaded: string | null = null;
+  try {
+    const { db, workspace, user } = await requireContext();
+    const { username } = z
+      .object({
+        username: z
+          .string()
+          .trim()
+          .regex(/^[A-Za-z0-9._-]{2,40}$/, "Use 2 a 40 caracteres: letras, números, ponto, hífen ou sublinhado."),
+      })
+      .parse(input);
+    const file = upload?.get("avatar");
+    const values: Record<string, string> = { username };
+    let previousAvatar: string | null = null;
+    if (file instanceof File && file.size > 0) {
+      if (file.size > 3 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp"].includes(file.type))
+        throw new Error("Envie uma imagem JPG, PNG ou WebP de até 3 MB.");
+      const { data: current, error: currentError } = await db
+        .from("profiles")
+        .select("avatar_url")
+        .eq("id", user.id)
+        .single();
+      checked(currentError);
+      previousAvatar = String(current?.avatar_url ?? "") || null;
+      uploaded = `${workspace.id}/avatars/${user.id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      const { error: uploadError } = await db.storage
+        .from("business-assets")
+        .upload(uploaded, file, { contentType: file.type, upsert: false });
+      checked(uploadError);
+      values.avatar_url = uploaded;
+    }
+    const { error } = await db.from("profiles").update(values).eq("id", user.id);
+    checked(error);
+    if (previousAvatar && !/^https?:\/\//i.test(previousAvatar))
+      await db.storage.from("business-assets").remove([previousAvatar]);
+    refresh();
+    return { ok: true, message: "Perfil atualizado." };
+  } catch (error) {
+    if (uploaded) {
+      try {
+        const { db } = await requireContext();
+        await db.storage.from("business-assets").remove([uploaded]);
+      } catch {}
+    }
+    return failure(error);
+  }
+}
 export async function removeRecord(table: string, id: string): Promise<Result> {
   try {
     if (!moduleByTable(table)) throw new Error("Tipo inválido.");

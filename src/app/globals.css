@@ -245,6 +245,10 @@ small {
   font-weight: 650;
   flex-shrink: 0;
 }
+.avatar.has-image { background-position: center; background-size: cover; color: transparent; }
+.profile-form { display: grid; gap: 10px; margin: 18px 0; }
+.profile-form label { display: grid; gap: 6px; font-size: 12px; font-weight: 700; }
+.profile-avatar { width: 58px; height: 58px; font-size: 20px; }
 .small-avatar {
   width: 30px;
   height: 30px;

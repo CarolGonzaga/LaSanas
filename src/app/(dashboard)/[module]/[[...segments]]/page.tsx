@@ -24,6 +24,7 @@ export default async function ModulePage({
       workspace={result.workspace?.name}
       data={result.data}
       homeView={result.workspace?.homeView}
+      userId={result.userId}
     >
       {result.error ? (
         <div className="page">

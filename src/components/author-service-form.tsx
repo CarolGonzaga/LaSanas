@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { createAuthorService } from "@/actions/business";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import type { Row } from "@/lib/modules";
+import { memberLabel, type Row } from "@/lib/modules";
 import type { Dataset } from "@/lib/workspace";
 
 export function AuthorServiceForm({
@@ -111,7 +111,7 @@ export function AuthorServiceForm({
               <option value="">Sem responsável</option>
               {(data.profiles ?? []).filter((profile) => profile.active).map((profile) => (
                 <option key={profile.id} value={profile.id}>
-                  {String(profile.full_name || profile.email)}
+                  {memberLabel(profile)}
                 </option>
               ))}
             </select>
