@@ -19,6 +19,7 @@ function RelationCombobox({
   placeholder,
   emptyLabel,
   clearLabel,
+  labelFor,
   choices,
   selectedId,
   onSelect,
@@ -29,6 +30,7 @@ function RelationCombobox({
   placeholder: string;
   emptyLabel: string;
   clearLabel?: string;
+  labelFor?: (choice: Row) => string;
   choices?: Row[];
   selectedId: string | boolean | undefined;
   onSelect: (id: string) => void;
@@ -37,14 +39,16 @@ function RelationCombobox({
   const root = useRef<HTMLDivElement>(null);
   const records = choices ?? [];
   const selected = records.find((choice) => choice.id === selectedId);
-  const selectedLabel = selected ? labelOf(selected, source) : "";
+  const choiceLabel = (choice: Row) =>
+    labelFor?.(choice) ?? labelOf(choice, source);
+  const selectedLabel = selected ? choiceLabel(selected) : "";
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const typedQuery = query ?? selectedLabel;
   const filtered = typedQuery.trim()
     ? records.filter((choice) =>
-        labelOf(choice, source)
+        choiceLabel(choice)
           .toLocaleLowerCase("pt-BR")
           .includes(typedQuery.toLocaleLowerCase("pt-BR")),
       )
@@ -167,7 +171,7 @@ function RelationCombobox({
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => choose(choice)}
                 >
-                  {labelOf(choice, source)}
+                  {choiceLabel(choice)}
                 </button>
               ))}
             </>
@@ -551,6 +555,31 @@ export function RecordForm({
                               : table === "campaigns" &&
                                   f.name === "service_package_id"
                                 ? "Nenhum pacote"
+                                : undefined
+                          }
+                          labelFor={
+                            table === "campaigns" && f.name === "opportunity_id"
+                              ? (opportunity: Row) => {
+                                  const author = data.authors?.find(
+                                    (item) => item.id === opportunity.author_id,
+                                  );
+                                  const book = data.books?.find(
+                                    (item) => item.id === opportunity.book_id,
+                                  );
+                                  return [
+                                    String(author?.name ?? opportunity.name),
+                                    book?.title ? String(book.title) : "",
+                                    options.opportunity[
+                                      String(opportunity.status)
+                                    ] ?? String(opportunity.status),
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" · ");
+                                }
+                              : table === "campaigns" &&
+                                  f.name === "service_package_id"
+                                ? (pack: Row) =>
+                                    `${String(pack.name)} · ${String(pack.duration_months)} meses · R$ ${String(pack.package_price)}/mês`
                                 : undefined
                           }
                           choices={data[f.source!] ? choices : undefined}
