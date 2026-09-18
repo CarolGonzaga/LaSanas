@@ -28,6 +28,7 @@ for (const name of [
   "202609170005_release_year_and_open_service_dates.sql",
   "202609170006_create_author_service.sql",
   "202609180007_media_kit_year.sql",
+  "202609180008_manage_campaigns.sql",
 ]) {
   const source = await readFile(
     new URL("../supabase/migrations/" + name, import.meta.url),
@@ -151,6 +152,13 @@ try {
   );
   assert.equal(datedOccurrence.schedule_status, "scheduled");
   assert.equal(datedOccurrence.scheduled_day, "2026-10-25");
+  await sql("update books set cover_ai_status='confirmed_human' where id=$1", [
+    book.id,
+  ]);
+  await sql(
+    "update campaigns set status='active' where id=(select campaign_id from campaign_services where id=$1)",
+    [datedService.id],
+  );
   await sql("update service_occurrences set status='completed' where id=$1", [
     datedOccurrence.id,
   ]);
@@ -372,6 +380,74 @@ try {
   assert.equal(
     new Set(occurrences.map((o) => String(o.scheduled_date).slice(0, 7))).size,
     3,
+  );
+  const [manageable] = await sql(
+    "insert into campaigns(workspace_id,name,author_id,book_id,start_date,total_value,payment_plan,status,campaign_type,proposal_type) values($1,'Campanha gerenciável',$2,$3,'2026-11-01',100,'full_upfront','draft','advertising','custom') returning id",
+    [u1, author.id, book.id],
+  );
+  const [manageableService] = await sql(
+    "insert into campaign_services(workspace_id,campaign_id,service_type_id,quantity,unit_price) values($1,$2,$3,2,50) returning id",
+    [u1, manageable.id, reelsType.id],
+  );
+  const [manageableOccurrence] = await sql(
+    "select id from service_occurrences where campaign_service_id=$1 order by sequence_number limit 1",
+    [manageableService.id],
+  );
+  const [serviceAsset] = await sql(
+    "insert into client_assets(workspace_id,campaign_id,author_id,book_id,service_occurrence_id,title,asset_type,storage_path) values($1,$2,$3,$4,$5,'Material preservado','image','campaigns/test.png') returning id",
+    [u1, manageable.id, author.id, book.id, manageableOccurrence.id],
+  );
+  await sql("select delete_campaign_service($1)", [manageableService.id]);
+  assert.equal(
+    (
+      await sql(
+        "select count(*)::int as count from service_occurrences where campaign_service_id=$1",
+        [manageableService.id],
+      )
+    )[0].count,
+    0,
+  );
+  assert.equal(
+    (
+      await sql("select service_occurrence_id from client_assets where id=$1", [
+        serviceAsset.id,
+      ])
+    )[0].service_occurrence_id,
+    null,
+  );
+  const [deletableService] = await sql(
+    "insert into campaign_services(workspace_id,campaign_id,service_type_id,quantity,unit_price) values($1,$2,$3,1,50) returning id",
+    [u1, manageable.id, reelsType.id],
+  );
+  const [deletableOccurrence] = await sql(
+    "select id from service_occurrences where campaign_service_id=$1",
+    [deletableService.id],
+  );
+  await sql(
+    "update client_assets set campaign_id=$2,service_occurrence_id=$3 where id=$1",
+    [serviceAsset.id, manageable.id, deletableOccurrence.id],
+  );
+  await sql("select delete_campaign($1,false)", [manageable.id]);
+  assert.equal(
+    (await sql("select * from campaigns where id=$1", [manageable.id])).length,
+    0,
+  );
+  assert.equal(
+    (await sql("select * from payments where campaign_id=$1", [manageable.id]))
+      .length,
+    0,
+  );
+  assert.equal(
+    (
+      await sql(
+        "select campaign_id,service_occurrence_id from client_assets where id=$1",
+        [serviceAsset.id],
+      )
+    )[0].campaign_id,
+    null,
+  );
+  console.log(
+    "PASS exclusão transacional de serviços e campanhas com materiais preservados",
   );
   await sql("update payments set status='pending' where id=$1", [pays[0].id]);
   assert.equal(

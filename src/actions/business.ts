@@ -101,6 +101,12 @@ export async function saveRecord(
     const mediaKitInput = input as Record<string, unknown>;
     const registerMediaKitSend =
       table === "media_kits" && mediaKitInput.register_sent === true;
+    const paymentPlanAction =
+      table === "campaigns" && id
+        ? z
+            .enum(["keep", "rebuild_pending", "rebuild_all"])
+            .parse(mediaKitInput.payment_plan_action ?? "keep")
+        : "keep";
     const opportunityMediaKitSent =
       table === "opportunities"
         ? z.enum(["yes", "no"]).parse(mediaKitInput.media_kit_sent)
@@ -114,6 +120,17 @@ export async function saveRecord(
           .parse(mediaKitInput.sent_channel)
       : null;
     const values = parseRecord(table, input);
+    let previousPaymentPlan: string | null = null;
+    if (table === "campaigns" && id) {
+      const { data, error } = await db
+        .from("campaigns")
+        .select("payment_plan")
+        .eq("id", id)
+        .eq("workspace_id", workspace.id)
+        .single();
+      checked(error);
+      previousPaymentPlan = String(data?.payment_plan ?? "");
+    }
     if (table === "opportunities") {
       if (opportunityMediaKitSent === "no") {
         values.media_kit_version_id = null;
@@ -140,19 +157,6 @@ export async function saveRecord(
       values.book_club_slot_id = z
         .uuid()
         .parse(upload.get("book_club_slot_id"));
-    if (id && table === "campaign_services") {
-      const { data, error } = await db
-        .from(table)
-        .select("quantity")
-        .eq("id", id)
-        .eq("workspace_id", workspace.id)
-        .single();
-      checked(error);
-      if (data?.quantity !== values.quantity)
-        throw new Error(
-          "Use a ação Alterar quantidade para preservar as execuções.",
-        );
-    }
     const field = table === "books" ? "cover_storage_path" : "storage_path";
     const file = upload?.get("file");
     let previous: string | null = null;
@@ -223,6 +227,21 @@ export async function saveRecord(
       : db.from(table).insert({ ...values, workspace_id: workspace.id });
     const { data, error } = await query.select("id").single();
     checked(error);
+    if (
+      table === "campaigns" &&
+      id &&
+      previousPaymentPlan !== values.payment_plan &&
+      paymentPlanAction !== "keep"
+    ) {
+      const { error: paymentError } = await db.rpc(
+        "rebuild_campaign_payments",
+        {
+          p_campaign: id,
+          p_mode: paymentPlanAction,
+        },
+      );
+      checked(paymentError);
+    }
     if (registerMediaKitSend && sentOpportunityId && sentChannel) {
       const mediaKitId = z.uuid().parse(data?.id);
       const { error: sendError } = await db.rpc("mark_media_kit", {
@@ -261,6 +280,14 @@ export async function removeRecord(table: string, id: string): Promise<Result> {
     if (!moduleByTable(table)) throw new Error("Tipo inválido.");
     z.uuid().parse(id);
     const { db, workspace } = await requireContext();
+    if (table === "campaign_services") {
+      const { error } = await db.rpc("delete_campaign_service", {
+        p_service: id,
+      });
+      checked(error);
+      refresh();
+      return { ok: true, message: "Serviço e execuções associadas removidos." };
+    }
     const { data, error: readError } = await db
       .from(table)
       .select("*")
@@ -311,6 +338,12 @@ export async function businessAction(
           .min(1)
           .max(600)
           .parse(args.quantity),
+      });
+      checked(error);
+    } else if (action === "delete-campaign") {
+      const { error } = await db.rpc("delete_campaign", {
+        p_campaign: id,
+        p_return_opportunity: args.returnOpportunity === "true",
       });
       checked(error);
     } else if (action === "kit") {

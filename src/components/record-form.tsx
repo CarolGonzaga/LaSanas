@@ -18,6 +18,7 @@ function RelationCombobox({
   source,
   placeholder,
   emptyLabel,
+  clearLabel,
   choices,
   selectedId,
   onSelect,
@@ -27,6 +28,7 @@ function RelationCombobox({
   source: string;
   placeholder: string;
   emptyLabel: string;
+  clearLabel?: string;
   choices?: Row[];
   selectedId: string | boolean | undefined;
   onSelect: (id: string) => void;
@@ -59,6 +61,11 @@ function RelationCombobox({
   }, []);
   function choose(choice: Row) {
     onSelect(choice.id);
+    setQuery(null);
+    setOpen(false);
+  }
+  function clearChoice() {
+    onSelect("");
     setQuery(null);
     setOpen(false);
   }
@@ -137,20 +144,33 @@ function RelationCombobox({
           {choices === undefined ? (
             <p>Carregando...</p>
           ) : filtered.length ? (
-            filtered.map((choice, index) => (
-              <button
-                type="button"
-                role="option"
-                aria-selected={choice.id === selectedId}
-                className={index === activeIndex ? "active" : ""}
-                id={id + "-option-" + choice.id}
-                key={choice.id}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => choose(choice)}
-              >
-                {labelOf(choice, source)}
-              </button>
-            ))
+            <>
+              {clearLabel && (
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={!selectedId}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={clearChoice}
+                >
+                  {clearLabel}
+                </button>
+              )}
+              {filtered.map((choice, index) => (
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={choice.id === selectedId}
+                  className={index === activeIndex ? "active" : ""}
+                  id={id + "-option-" + choice.id}
+                  key={choice.id}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => choose(choice)}
+                >
+                  {labelOf(choice, source)}
+                </button>
+              ))}
+            </>
           ) : (
             <p>{emptyLabel}</p>
           )}
@@ -236,17 +256,7 @@ export function RecordForm({
     }
     const payload = { ...input };
     if (row?.id) {
-      const locked =
-        table === "campaigns"
-          ? [
-              "total_value",
-              "payment_plan",
-              "service_package_id",
-              "opportunity_id",
-            ]
-          : table === "campaign_services"
-            ? ["quantity"]
-            : [];
+      const locked: string[] = [];
       for (const key of locked) payload[key] = String(row[key] ?? "");
     }
     for (const f of mod.fields)
@@ -315,6 +325,12 @@ export function RecordForm({
               )
                 return null;
               if (
+                table === "campaigns" &&
+                f.name === "payment_plan_action" &&
+                !row?.id
+              )
+                return null;
+              if (
                 table === "opportunities" &&
                 ["media_kit_version_id", "media_kit_sent_at"].includes(
                   f.name,
@@ -359,11 +375,23 @@ export function RecordForm({
                   (kit) => kit.active || kit.id === values.media_kit_version_id,
                 );
               }
+              if (table === "campaigns" && f.name === "opportunity_id")
+                choices = choices.filter(
+                  (opportunity) =>
+                    opportunity.status === "approved" ||
+                    opportunity.id === values.opportunity_id,
+                );
+              if (table === "campaigns" && f.name === "service_package_id")
+                choices = choices.filter(
+                  (pack) =>
+                    pack.active || pack.id === values.service_package_id,
+                );
               const searchableRelation =
                 f.type === "relation" &&
-                ["book_id", "publisher_id", "media_kit_version_id"].includes(
+                (["book_id", "publisher_id", "media_kit_version_id"].includes(
                   f.name,
-                );
+                ) ||
+                  table === "campaigns");
               const section =
                 table === "opportunities"
                   ? (
@@ -496,14 +524,34 @@ export function RecordForm({
                               ? "Clique ou digite para buscar um livro"
                               : f.name === "publisher_id"
                                 ? "Clique ou digite para buscar uma editora"
-                                : "Clique ou digite para buscar um media kit"
+                                : f.name === "author_id"
+                                  ? "Clique ou digite para buscar uma autora"
+                                  : f.name === "opportunity_id"
+                                    ? "Clique ou digite para buscar uma oportunidade"
+                                    : f.name === "service_package_id"
+                                      ? "Clique ou digite para buscar um pacote"
+                                      : "Clique ou digite para buscar um media kit"
                           }
                           emptyLabel={
                             f.name === "book_id"
                               ? "Nenhum livro encontrado."
                               : f.name === "publisher_id"
                                 ? "Nenhuma editora encontrada."
-                                : "Nenhum media kit encontrado."
+                                : f.name === "author_id"
+                                  ? "Nenhuma autora encontrada."
+                                  : f.name === "opportunity_id"
+                                    ? "Nenhuma oportunidade aprovada encontrada."
+                                    : f.name === "service_package_id"
+                                      ? "Nenhum pacote ativo encontrado."
+                                      : "Nenhum media kit encontrado."
+                          }
+                          clearLabel={
+                            table === "campaigns" && f.name === "opportunity_id"
+                              ? "Nenhuma oportunidade"
+                              : table === "campaigns" &&
+                                  f.name === "service_package_id"
+                                ? "Nenhum pacote"
+                                : undefined
                           }
                           choices={data[f.source!] ? choices : undefined}
                           selectedId={values[f.name]}
@@ -578,10 +626,10 @@ export function RecordForm({
                         min={
                           f.type === "money"
                             ? "0"
-                          : f.type === "integer"
-                            ? ["release_year", "year"].includes(f.name)
-                              ? "1000"
-                              : "1"
+                            : f.type === "integer"
+                              ? ["release_year", "year"].includes(f.name)
+                                ? "1000"
+                                : "1"
                               : undefined
                         }
                         {...reg}

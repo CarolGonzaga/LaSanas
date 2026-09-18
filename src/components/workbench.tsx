@@ -77,6 +77,8 @@ export function Workbench({
     table: string;
     row: Row;
     archive?: boolean;
+    campaignDelete?: boolean;
+    returnOpportunity?: boolean;
   } | null>(null);
   const [operation, setOperation] = useState<{
     action: string;
@@ -317,6 +319,21 @@ export function Workbench({
             onClick={() => setOperation({ action: "override", row })}
           >
             Exceção de pagamento
+          </button>
+        )}
+        {table === "campaigns" && (
+          <button
+            className="small-button danger-button"
+            onClick={() =>
+              setConfirm({
+                table,
+                row,
+                campaignDelete: true,
+                returnOpportunity: false,
+              })
+            }
+          >
+            Excluir campanha
           </button>
         )}
         {table === "book_club_slots" && row.book_id && !row.campaign_id && (
@@ -664,7 +681,8 @@ export function Workbench({
             <p>{m.description}</p>
           </div>
           <button className="button" onClick={() => edit(m.table, r)}>
-            <Pencil size={15} /> Editar
+            <Pencil size={15} />
+            {m.table === "campaigns" ? "Editar campanha" : "Editar"}
           </button>
         </div>
         {m.table === "books" && r.cover_ai_status === "confirmed_ai" && (
@@ -839,7 +857,7 @@ export function Workbench({
             {m.table === "campaigns" && (
               <section className="panel">
                 <div className="section-heading">
-                  <h2>Produção</h2>
+                  <h2>Serviços</h2>
                   <button
                     className="small-button"
                     onClick={() =>
@@ -1266,14 +1284,47 @@ export function Workbench({
           if (!v) setConfirm(null);
         }}
         title={
-          confirm?.archive
-            ? "Arquivar ou reativar registro?"
-            : "Excluir registro?"
+          confirm?.campaignDelete
+            ? "Excluir campanha?"
+            : confirm?.archive
+              ? "Arquivar ou reativar registro?"
+              : "Excluir registro?"
         }
         description={
-          confirm?.archive
-            ? "O histórico será preservado e o registro poderá ser reativado."
-            : "Esta ação remove o registro e, se houver, seu arquivo. Registros com vínculos precisam ser desvinculados antes."
+          confirm?.campaignDelete
+            ? (() => {
+                const services = (data.campaign_services ?? []).filter(
+                  (service) => service.campaign_id === confirm.row.id,
+                );
+                const serviceIds = services.map((service) => service.id);
+                const occurrences = (data.service_occurrences ?? []).filter(
+                  (occurrence) =>
+                    serviceIds.includes(String(occurrence.campaign_service_id)),
+                );
+                const payments = (data.payments ?? []).filter(
+                  (payment) => payment.campaign_id === confirm.row.id,
+                );
+                const assets = (data.client_assets ?? []).filter(
+                  (asset) => asset.campaign_id === confirm.row.id,
+                );
+                return `Esta campanha possui ${services.length} serviços, ${occurrences.length} execuções, ${payments.length} pagamentos e ${assets.length} materiais. Serviços, execuções e pagamentos serão removidos. Os materiais e seus arquivos serão preservados, sem o vínculo à campanha.`;
+              })()
+            : confirm?.archive
+              ? "O histórico será preservado e o registro poderá ser reativado."
+              : confirm?.table === "campaign_services"
+                ? (() => {
+                    const occurrences = (data.service_occurrences ?? []).filter(
+                      (occurrence) =>
+                        occurrence.campaign_service_id === confirm.row.id,
+                    );
+                    const completed = occurrences.filter(
+                      (occurrence) => occurrence.status === "completed",
+                    ).length;
+                    return `Este serviço possui ${occurrences.length} execuções${completed ? `, incluindo ${completed} concluída(s)` : ""}. Todas as execuções associadas serão removidas; materiais produzidos serão preservados.`;
+                  })()
+                : confirm?.table === "payments" && confirm.row.status === "paid"
+                  ? "Este pagamento está marcado como recebido. Tem certeza de que deseja excluí-lo?"
+                  : "Esta ação remove o registro e, se houver, seu arquivo. Registros com vínculos precisam ser desvinculados antes."
         }
         busy={busy}
         onConfirm={() => {
@@ -1282,6 +1333,24 @@ export function Workbench({
             run("archive", confirm.row, {
               table: confirm.table,
               undo: String(!!confirm.row.archived_at),
+            });
+            return;
+          }
+          if (confirm.campaignDelete) {
+            start(async () => {
+              const result = await businessAction(
+                "delete-campaign",
+                confirm.row.id,
+                {
+                  returnOpportunity: String(!!confirm.returnOpportunity),
+                },
+              );
+              if (result.ok) {
+                toast.success("Campanha excluída com segurança.");
+                setConfirm(null);
+                router.push(href("campaigns"));
+                router.refresh();
+              } else toast.error(result.message);
             });
             return;
           }
@@ -1299,7 +1368,24 @@ export function Workbench({
             } else toast.error(result.message);
           });
         }}
-      />
+      >
+        {confirm?.campaignDelete && confirm.row.opportunity_id && (
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={!!confirm.returnOpportunity}
+              onChange={(event) =>
+                setConfirm((current) =>
+                  current
+                    ? { ...current, returnOpportunity: event.target.checked }
+                    : current,
+                )
+              }
+            />
+            Retornar a oportunidade convertida para “Aprovada”
+          </label>
+        )}
+      </ConfirmDialog>
       {operation && (
         <ActionDialog
           operation={operation}

@@ -7,6 +7,7 @@ export function ConfirmDialog({
   description,
   onConfirm,
   busy = false,
+  children,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -14,6 +15,7 @@ export function ConfirmDialog({
   description: string;
   onConfirm: () => void;
   busy?: boolean;
+  children?: React.ReactNode;
 }) {
   return (
     <Alert.Root open={open} onOpenChange={onOpenChange}>
@@ -22,6 +24,7 @@ export function ConfirmDialog({
         <Alert.Content className="dialog-content compact">
           <Alert.Title>{title}</Alert.Title>
           <Alert.Description className="muted">{description}</Alert.Description>
+          {children}
           <div className="dialog-actions">
             <Alert.Cancel className="button secondary" disabled={busy}>
               Cancelar

@@ -91,6 +91,11 @@ export const options: Record<string, Record<string, string>> = {
     full_upfront: "100% antecipado",
     half_and_half: "50% sinal + 50% entrega",
   },
+  paymentPlanAction: {
+    keep: "Manter cobranças atuais",
+    rebuild_pending: "Recriar cobranças pendentes",
+    rebuild_all: "Recriar todas as cobranças, inclusive recebidas",
+  },
   occurrence: {
     pending: "Pendente",
     completed: "Concluído",
@@ -998,6 +1003,14 @@ export const modules: Module[] = [
         type: "select",
         required: true,
         source: "plan",
+      },
+      {
+        name: "payment_plan_action",
+        label: "Ao alterar o plano com cobranças cadastradas",
+        type: "select",
+        required: false,
+        source: "paymentPlanAction",
+        persist: false,
       },
       {
         name: "status",
