@@ -1552,6 +1552,18 @@ export const primaryModules = [
   "opportunities",
   "campaigns",
 ];
+export const ACTIVE_OPPORTUNITY_STATUSES = new Set([
+  "new",
+  "contacted",
+  "media_kit_sent",
+  "waiting_book_data",
+  "proposal_requested",
+  "proposal_sent",
+  "negotiating",
+  "approved",
+]);
+export const isActiveOpportunity = (row: Row) =>
+  !row.archived_at && ACTIVE_OPPORTUNITY_STATUSES.has(String(row.status));
 export const labelOf = (row: Row, table: string): string =>
   String(
     row[moduleByTable(table)?.label ?? "name"] ||

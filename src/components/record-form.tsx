@@ -1,7 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch, type DefaultValues } from "react-hook-form";
+import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { saveRecord } from "@/actions/business";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -12,6 +13,149 @@ import type { Dataset } from "@/lib/workspace";
 import { today } from "@/lib/format";
 
 type Values = Record<string, string | boolean>;
+function RelationCombobox({
+  id,
+  label,
+  choices,
+  selectedId,
+  onSelect,
+  disabled = false,
+}: {
+  id: string;
+  label: string;
+  choices?: Row[];
+  selectedId: string | boolean | undefined;
+  onSelect: (id: string) => void;
+  disabled?: boolean;
+}) {
+  const root = useRef<HTMLDivElement>(null);
+  const records = choices ?? [];
+  const selected = records.find((choice) => choice.id === selectedId);
+  const selectedLabel = selected ? labelOf(selected, label) : "";
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState<string | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const typedQuery = query ?? selectedLabel;
+  const filtered = typedQuery.trim()
+    ? records.filter((choice) =>
+        labelOf(choice, label)
+          .toLocaleLowerCase("pt-BR")
+          .includes(typedQuery.toLocaleLowerCase("pt-BR")),
+      )
+    : records;
+  useEffect(() => {
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!root.current?.contains(event.target as Node)) {
+        setQuery(null);
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    return () => document.removeEventListener("mousedown", closeOnOutsideClick);
+  }, []);
+  function choose(choice: Row) {
+    onSelect(choice.id);
+    setQuery(null);
+    setOpen(false);
+  }
+  function showAll() {
+    setQuery("");
+    setActiveIndex(0);
+    setOpen(true);
+  }
+  return (
+    <div className="relation-combobox" ref={root}>
+      <div className="combobox-input">
+        <input
+          id={id}
+          type="text"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-controls={id + "-options"}
+          aria-expanded={open}
+          aria-activedescendant={
+            open && filtered[activeIndex]
+              ? id + "-option-" + filtered[activeIndex].id
+              : undefined
+          }
+          placeholder={"Clique ou digite para buscar " + (label === "books" ? "um livro" : "uma editora")}
+          value={typedQuery}
+          disabled={disabled}
+          onClick={() => !open && showAll()}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setActiveIndex(0);
+            setOpen(true);
+            onSelect("");
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              if (!open) showAll();
+              else setActiveIndex((index) => Math.min(index + 1, filtered.length - 1));
+            }
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              if (!open) showAll();
+              else setActiveIndex((index) => Math.max(index - 1, 0));
+            }
+            if (event.key === "Enter" && open) {
+              event.preventDefault();
+              if (filtered[activeIndex]) choose(filtered[activeIndex]);
+            }
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setQuery(null);
+              setOpen(false);
+            }
+          }}
+        />
+        <button
+          type="button"
+          className="combobox-toggle"
+          aria-label={"Abrir opções de " + (label === "books" ? "livro" : "editora")}
+          onClick={() => {
+            if (open) {
+              setQuery(null);
+              setOpen(false);
+            } else showAll();
+          }}
+          disabled={disabled}
+        >
+          <ChevronDown size={16} />
+        </button>
+      </div>
+      {open && (
+        <div className="combobox-options" id={id + "-options"} role="listbox">
+          {choices === undefined ? (
+            <p>Carregando...</p>
+          ) : filtered.length ? (
+            filtered.map((choice, index) => (
+              <button
+                type="button"
+                role="option"
+                aria-selected={choice.id === selectedId}
+                className={index === activeIndex ? "active" : ""}
+                id={id + "-option-" + choice.id}
+                key={choice.id}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => choose(choice)}
+              >
+                {labelOf(choice, label)}
+              </button>
+            ))
+          ) : (
+            <p>
+              {label === "books"
+                ? "Nenhum livro encontrado."
+                : "Nenhuma editora encontrada."}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 function defaults(table: string, row?: Partial<Row>): Values {
   const mod = moduleByTable(table)!;
   const values: Values = {};
@@ -65,9 +209,6 @@ export function RecordForm({
   const mod = moduleByTable(table)!;
   const [file, setFile] = useState<File | null>(null);
   const [discard, setDiscard] = useState(false);
-  const [relationQueries, setRelationQueries] = useState<
-    Record<string, string>
-  >({});
   const {
     register,
     handleSubmit,
@@ -194,34 +335,6 @@ export function RecordForm({
               const searchableRelation =
                 f.type === "relation" &&
                 ["book_id", "publisher_id"].includes(f.name);
-              const selectedChoice = choices.find(
-                (choice) => choice.id === values[f.name],
-              );
-              const relationQuery = Object.hasOwn(relationQueries, f.name)
-                ? relationQueries[f.name]
-                : selectedChoice
-                  ? labelOf(selectedChoice, f.source!)
-                  : "";
-              const visibleChoices =
-                searchableRelation
-                  ? (() => {
-                      const matches = relationQuery.trim()
-                        ? choices.filter((choice) =>
-                            labelOf(choice, f.source!)
-                              .toLocaleLowerCase("pt-BR")
-                              .includes(
-                                relationQuery.toLocaleLowerCase("pt-BR"),
-                              ),
-                          )
-                        : choices.slice(0, 50);
-                      return selectedChoice &&
-                        !matches.some(
-                          (choice) => choice.id === selectedChoice.id,
-                        )
-                        ? [selectedChoice, ...matches]
-                        : matches;
-                    })()
-                  : choices;
               const reg = register(f.name, {
                 required: f.required ? "Campo obrigatório." : false,
                 onChange: (e) => {
@@ -273,65 +386,37 @@ export function RecordForm({
                   ) : f.type === "checkbox" ? (
                     <input id={f.name} type="checkbox" {...reg} />
                   ) : searchableRelation ? (
-                    <div className="relation-search">
-                      <input
+                    <div>
+                      <input type="hidden" {...reg} />
+                      <RelationCombobox
                         id={f.name}
-                        type="search"
-                        aria-label={"Buscar " + f.label.toLocaleLowerCase("pt-BR")}
-                        placeholder={
-                          "Digite o nome " +
-                          (f.name === "book_id" ? "do livro" : "da editora") +
-                          " para filtrar"
-                        }
-                        value={relationQuery}
-                        list={f.name + "-options"}
-                        onChange={(e) => {
-                          const query = e.target.value;
-                          const choice = choices.find(
-                            (item) =>
-                              labelOf(item, f.source!).toLocaleLowerCase("pt-BR") ===
-                              query.toLocaleLowerCase("pt-BR"),
-                          );
-                          setRelationQueries((current) => ({
-                            ...current,
-                            [f.name]: query,
-                          }));
-                          setValue(f.name, String(choice?.id ?? ""), {
+                        label={f.source!}
+                        choices={data[f.source!] ? choices : undefined}
+                        selectedId={values[f.name]}
+                        disabled={immutable}
+                        onSelect={(id) => {
+                          setValue(f.name, id, {
                             shouldDirty: true,
                             shouldValidate: true,
                           });
-                          if (f.name === "book_id" && choice) {
-                            if (mod.fields.some((item) => item.name === "author_id"))
-                              setValue("author_id", String(choice.author_id ?? ""));
-                            if (
-                              mod.fields.some(
-                                (item) => item.name === "publisher_id",
+                          if (f.name === "book_id" && id) {
+                            const book = data.books?.find((item) => item.id === id);
+                            if (book) {
+                              if (mod.fields.some((item) => item.name === "author_id"))
+                                setValue("author_id", String(book.author_id ?? ""));
+                              if (
+                                mod.fields.some(
+                                  (item) => item.name === "publisher_id",
+                                )
                               )
-                            )
-                              setValue(
-                                "publisher_id",
-                                String(choice.publisher_id ?? ""),
-                              );
+                                setValue(
+                                  "publisher_id",
+                                  String(book.publisher_id ?? ""),
+                                );
+                            }
                           }
                         }}
-                        disabled={immutable}
                       />
-                      <input type="hidden" {...reg} />
-                      <datalist id={f.name + "-options"}>
-                        {visibleChoices.map((choice) => (
-                          <option
-                            key={choice.id}
-                            value={labelOf(choice, f.source!)}
-                          >
-                            {labelOf(choice, f.source!)}
-                          </option>
-                        ))}
-                      </datalist>
-                      {!relationQuery && choices.length > 50 && (
-                        <small>
-                          Digite para localizar entre {choices.length} {f.name === "book_id" ? "livros" : "editoras"}.
-                        </small>
-                      )}
                     </div>
                   ) : ["relation", "member", "select"].includes(f.type) ? (
                     <select id={f.name} {...reg} disabled={immutable}>
@@ -344,7 +429,7 @@ export function RecordForm({
                               </option>
                             ),
                           )
-                        : visibleChoices.map((c) => (
+                        : choices.map((c) => (
                             <option key={c.id} value={c.id}>
                               {f.type === "member"
                                 ? String(c.full_name || c.email)

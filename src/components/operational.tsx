@@ -14,7 +14,12 @@ import {
   MessageCircle,
 } from "lucide-react";
 import type { Dataset } from "@/lib/workspace";
-import { moduleByTable, options, type Row } from "@/lib/modules";
+import {
+  isActiveOpportunity,
+  moduleByTable,
+  options,
+  type Row,
+} from "@/lib/modules";
 import { money, date, today } from "@/lib/format";
 import { StatusBadge } from "./status-badge";
 
@@ -80,7 +85,7 @@ export function eventsFor(data: Dataset): Event[] {
       client: "",
     });
   for (const r of data.opportunities ?? [])
-    if (!r.archived_at && !["lost", "converted"].includes(String(r.status)))
+    if (isActiveOpportunity(r))
       result.push({
         id: r.id,
         table: "opportunities",
@@ -156,6 +161,7 @@ export function OperationalDashboard({
   );
   const opp = data.opportunities ?? [],
     payments = data.payments ?? [];
+  const activeOpportunities = opp.filter(isActiveOpportunity);
   const overdue = payments.filter(
     (p) => p.status === "pending" && String(p.due_date) < now,
   );
@@ -430,24 +436,31 @@ export function OperationalDashboard({
             </div>
             <div className="pipeline-summary">
               <div>
-                <strong>
-                  {opp.filter((o) => o.status === "waiting_book_data").length}
-                </strong>
-                <span>Aguardando dados do livro</span>
+                <strong>{activeOpportunities.length}</strong>
+                <span>Oportunidades ativas no funil</span>
               </div>
               <div>
                 <strong>
-                  {
-                    opp.filter((o) =>
-                      ["proposal_sent", "negotiating"].includes(
-                        String(o.status),
-                      ),
-                    ).length
-                  }
+                  {activeOpportunities.filter(
+                    (opportunity) => opportunity.status === "contacted",
+                  ).length}
                 </strong>
-                <span>Propostas em andamento</span>
+                <span>Contato realizado</span>
               </div>
             </div>
+            {activeOpportunities.slice(0, 5).map((opportunity) => (
+              <div className="event-row" key={opportunity.id}>
+                <div>
+                  <Link href={prefix + "/oportunidades/" + opportunity.id}>
+                    {String(opportunity.name)}
+                  </Link>
+                  <small>
+                    {options.channel[String(opportunity.source_channel)]}
+                  </small>
+                </div>
+                <StatusBadge value={opportunity.status} />
+              </div>
+            ))}
           </section>
         </div>
         <aside>

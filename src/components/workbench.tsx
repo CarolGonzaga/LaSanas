@@ -98,6 +98,12 @@ export function Workbench({
     const r = data[table]?.find((r) => r.id === id);
     return r ? labelOf(r, table) : "—";
   };
+  const serviceLabel = (service: Row) => {
+    const type = data.service_types?.find(
+      (item) => item.id === service.service_type_id,
+    );
+    return String(type?.name || service.custom_name || "Serviço");
+  };
   const coverUrl = (row: Row) => {
     const url = row.preview_url ?? row.cover_external_url;
     return typeof url === "string" && /^https?:\/\//.test(url) ? url : null;
@@ -413,6 +419,13 @@ export function Workbench({
             row.default_price ??
             row.package_price;
           const bookCover = table === "books" ? coverUrl(row) : null;
+          const serviceCampaign =
+            table === "campaign_services"
+              ? data.campaigns?.find((campaign) => campaign.id === row.campaign_id)
+              : null;
+          const serviceBook = serviceCampaign?.book_id
+            ? data.books?.find((book) => book.id === serviceCampaign.book_id)
+            : null;
           return (
             <article
               className={"record-card " + (row.archived_at ? "archived" : "")}
@@ -467,12 +480,25 @@ export function Workbench({
                   )}
               </div>
               <Link className="record-title" href={href(table, row.id)}>
-                {labelOf(row, table)}
+                {table === "campaign_services"
+                  ? serviceLabel(row)
+                  : labelOf(row, table)}
                 <ArrowUpRight size={16} />
               </Link>
               <p className="record-meta">
-                {ref.map((f) => display(m, row, f.name)).join(" · ") ||
-                  String(row.email ?? row.description ?? row.category ?? "")}
+                {table === "campaign_services"
+                  ? String(serviceBook?.title ?? "Livro não vinculado")
+                  : table === "books" && className === "author-book-list"
+                    ? [
+                        row.release_year ? String(row.release_year) : "",
+                        row.publisher_id
+                          ? display(m, row, "publisher_id")
+                          : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")
+                  : ref.map((f) => display(m, row, f.name)).join(" · ") ||
+                    String(row.email ?? row.description ?? row.category ?? "")}
               </p>
               {table === "books" && <StatusBadge value={row.cover_ai_status} />}
               {amount !== undefined && (
