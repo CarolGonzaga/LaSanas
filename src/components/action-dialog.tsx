@@ -31,11 +31,22 @@ export function ActionDialog({
       ? data.response_templates?.find(
           (t) => t.category === "Leitura Coletiva" && t.active,
         )?.content
-      : row.content;
+      : action === "kit"
+        ? data.response_templates?.find(
+            (t) =>
+              t.active &&
+              t.category === "Primeiro Contato" &&
+              t.title === "Autora conhecida + media kit",
+          )?.content
+        : row.content;
   const source = String(
     template ??
-      "Vaga aberta para a leitura coletiva de {mes} de {ano}! Autoras independentes, entrem em contato para conhecer a proposta.",
+      (action === "kit"
+        ? "Olá, {autora}! Que bom que você entrou em contato. Vi o lançamento de {livro} e será um prazer divulgar o seu livro. Estou enviando nosso media kit para você conhecer melhor o nosso trabalho."
+        : "Vaga aberta para a leitura coletiva de {mes} de {ano}! Autoras independentes, entrem em contato para conhecer a proposta."),
   );
+  const opportunityAuthor = data.authors?.find((author) => author.id === row.author_id);
+  const opportunityBook = data.books?.find((book) => book.id === row.book_id);
   const text = source.replace(
     /\{(nome|autora|livro|editora|valor|mes|ano)\}/g,
     (_, key) =>
@@ -44,7 +55,11 @@ export function ActionDialog({
         ? (options.month[String(row.month)] ?? "{mes}")
         : key === "ano"
           ? String(row.year ?? "")
-          : "{" + key + "}"),
+          : key === "autora" || key === "nome"
+            ? String(opportunityAuthor?.name ?? "{" + key + "}")
+            : key === "livro"
+              ? String(opportunityBook?.title ?? "{livro}")
+              : "{" + key + "}"),
   );
   const title =
     action === "resize"
@@ -139,7 +154,7 @@ export function ActionDialog({
               </label>
             </>
           )}
-          {["template", "announcement"].includes(action) && (
+          {["template", "announcement", "kit"].includes(action) && (
             <>
               {Array.from(
                 new Set(
@@ -156,7 +171,11 @@ export function ActionDialog({
                   <input
                     value={
                       variables[k] ??
-                      (k === "mes"
+                      (k === "autora" || k === "nome"
+                        ? String(opportunityAuthor?.name ?? "")
+                        : k === "livro"
+                          ? String(opportunityBook?.title ?? "")
+                          : k === "mes"
                         ? (options.month[String(row.month)] ?? "")
                         : k === "ano"
                           ? String(row.year ?? "")
@@ -190,7 +209,9 @@ export function ActionDialog({
                 ? "Salvando…"
                 : action === "announcement"
                   ? "Marcar anúncio como publicado"
-                  : "Confirmar"}
+                  : action === "kit"
+                    ? "Registrar envio do media kit"
+                    : "Confirmar"}
             </button>
           )}
         </form>
