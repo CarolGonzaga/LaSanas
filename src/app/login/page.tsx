@@ -17,22 +17,18 @@ export default function Login() {
         <ThemeToggle />
       </div>
       <section className="login-story">
-        <Link className="brand" href="/login">
+        <Link className="login-brand-lockup" href="/login">
           <Image
-            className="brand-logo"
+            className="login-logo-large"
             src="/lasanas-logo.png"
             alt="LaSanas"
-            width={48}
-            height={48}
+            width={280}
+            height={280}
             unoptimized
             priority
           />
           <span>LaSanas</span>
         </Link>
-        <div>
-          <h1>Gestão de publicidade literária</h1>
-          <p>Campanhas, agenda e financeiro.</p>
-        </div>
       </section>
       <section className="login-form-area">
         <form

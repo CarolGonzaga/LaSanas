@@ -94,6 +94,10 @@ export function Workbench({
     const r = data[table]?.find((r) => r.id === id);
     return r ? labelOf(r, table) : "—";
   };
+  const coverUrl = (row: Row) => {
+    const url = row.preview_url ?? row.cover_external_url;
+    return typeof url === "string" && /^https?:\/\//.test(url) ? url : null;
+  };
   const run = (action: string, row: Row, args: Record<string, string> = {}) =>
     start(async () => {
       if (readOnly) {
@@ -393,12 +397,23 @@ export function Workbench({
             row.total_value ??
             row.default_price ??
             row.package_price;
+          const bookCover = table === "books" ? coverUrl(row) : null;
           return (
             <article
               className={"record-card " + (row.archived_at ? "archived" : "")}
               key={row.id}
             >
-              {row.preview_url && (
+              {bookCover ? (
+                <div className="book-card-cover">
+                  <Image
+                    src={bookCover}
+                    alt={"Capa de " + labelOf(row, table)}
+                    width={180}
+                    height={270}
+                    unoptimized
+                  />
+                </div>
+              ) : row.preview_url ? (
                 <button
                   className="thumbnail-button"
                   onClick={() => openAsset(table, row)}
@@ -413,7 +428,7 @@ export function Workbench({
                     className="asset-thumbnail"
                   />
                 </button>
-              )}
+              ) : null}
               <div className="record-top">
                 <div className="record-icon">
                   {table === "books" ? (
@@ -576,6 +591,37 @@ export function Workbench({
             Este livro não pode seguir para produção enquanto utilizar uma capa
             produzida por IA.
           </div>
+        )}
+        {m.table === "books" && (
+          <section className="book-summary" aria-label="Resumo do livro">
+            <div className="book-summary-cover">
+              {coverUrl(r) ? (
+                <Image
+                  src={coverUrl(r)!}
+                  alt={"Capa de " + labelOf(r, m.table)}
+                  width={88}
+                  height={132}
+                  unoptimized
+                />
+              ) : (
+                <BookOpen size={26} aria-hidden="true" />
+              )}
+            </div>
+            <dl className="book-summary-data">
+              <div>
+                <dt>Autora</dt>
+                <dd>{display(m, r, "author_id")}</dd>
+              </div>
+              <div>
+                <dt>Editora</dt>
+                <dd>{display(m, r, "publisher_id")}</dd>
+              </div>
+              <div>
+                <dt>Lançamento</dt>
+                <dd>{display(m, r, "release_date")}</dd>
+              </div>
+            </dl>
+          </section>
         )}
         {["authors", "publishers"].includes(m.table) && (
           <div className="summary-grid">
