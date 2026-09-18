@@ -917,7 +917,7 @@ input[type="checkbox"] {
   color: var(--orange);
 }
 .book-card-cover {
-  width: 50%;
+  width: 100%;
   aspect-ratio: 2 / 3;
   overflow: hidden;
   border-radius: 8px;
