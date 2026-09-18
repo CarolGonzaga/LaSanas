@@ -371,11 +371,6 @@ export function RecordForm({
                   ids.includes(String(p.campaign_service_id)),
                 );
               }
-              if (f.name === "media_kit_version_id") {
-                choices = choices.filter(
-                  (kit) => kit.active || kit.id === values.media_kit_version_id,
-                );
-              }
               if (table === "campaigns" && f.name === "opportunity_id")
                 choices = choices.filter(
                   (opportunity) =>
