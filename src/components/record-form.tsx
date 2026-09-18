@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch, type DefaultValues } from "react-hook-form";
 import { ChevronDown } from "lucide-react";
@@ -15,14 +15,18 @@ import { today } from "@/lib/format";
 type Values = Record<string, string | boolean>;
 function RelationCombobox({
   id,
-  label,
+  source,
+  placeholder,
+  emptyLabel,
   choices,
   selectedId,
   onSelect,
   disabled = false,
 }: {
   id: string;
-  label: string;
+  source: string;
+  placeholder: string;
+  emptyLabel: string;
   choices?: Row[];
   selectedId: string | boolean | undefined;
   onSelect: (id: string) => void;
@@ -31,14 +35,14 @@ function RelationCombobox({
   const root = useRef<HTMLDivElement>(null);
   const records = choices ?? [];
   const selected = records.find((choice) => choice.id === selectedId);
-  const selectedLabel = selected ? labelOf(selected, label) : "";
+  const selectedLabel = selected ? labelOf(selected, source) : "";
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const typedQuery = query ?? selectedLabel;
   const filtered = typedQuery.trim()
     ? records.filter((choice) =>
-        labelOf(choice, label)
+        labelOf(choice, source)
           .toLocaleLowerCase("pt-BR")
           .includes(typedQuery.toLocaleLowerCase("pt-BR")),
       )
@@ -78,7 +82,7 @@ function RelationCombobox({
               ? id + "-option-" + filtered[activeIndex].id
               : undefined
           }
-          placeholder={"Clique ou digite para buscar " + (label === "books" ? "um livro" : "uma editora")}
+          placeholder={placeholder}
           value={typedQuery}
           disabled={disabled}
           onClick={() => !open && showAll()}
@@ -92,7 +96,10 @@ function RelationCombobox({
             if (event.key === "ArrowDown") {
               event.preventDefault();
               if (!open) showAll();
-              else setActiveIndex((index) => Math.min(index + 1, filtered.length - 1));
+              else
+                setActiveIndex((index) =>
+                  Math.min(index + 1, filtered.length - 1),
+                );
             }
             if (event.key === "ArrowUp") {
               event.preventDefault();
@@ -113,7 +120,7 @@ function RelationCombobox({
         <button
           type="button"
           className="combobox-toggle"
-          aria-label={"Abrir opções de " + (label === "books" ? "livro" : "editora")}
+          aria-label={"Abrir opções de " + source}
           onClick={() => {
             if (open) {
               setQuery(null);
@@ -141,15 +148,11 @@ function RelationCombobox({
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => choose(choice)}
               >
-                {labelOf(choice, label)}
+                {labelOf(choice, source)}
               </button>
             ))
           ) : (
-            <p>
-              {label === "books"
-                ? "Nenhum livro encontrado."
-                : "Nenhuma editora encontrada."}
-            </p>
+            <p>{emptyLabel}</p>
           )}
         </div>
       )}
@@ -161,6 +164,8 @@ function defaults(table: string, row?: Partial<Row>): Values {
   const values: Values = {};
   for (const f of mod.fields) {
     let value = row?.[f.name];
+    if (table === "opportunities" && f.name === "media_kit_sent")
+      value = row?.media_kit_version_id ? "yes" : "no";
     if (value === undefined || value === null) {
       value =
         f.type === "checkbox"
@@ -278,15 +283,24 @@ export function RecordForm({
         <DialogContent
           title={(row?.id ? "Editar • " : "Adicionar • ") + mod.title}
           description="Os campos com * são obrigatórios."
+          className={
+            table === "opportunities" ? "opportunity-dialog" : undefined
+          }
         >
-          <form onSubmit={handleSubmit(submit)} className="record-form">
+          <form
+            onSubmit={handleSubmit(submit)}
+            className={
+              "record-form" +
+              (table === "opportunities" ? " opportunity-form" : "")
+            }
+          >
             {table === "campaigns" && !row?.id && (
               <div className="notice full">
                 As cobranças serão criadas automaticamente. A produção exige
                 pagamento inicial e capa confirmada sem IA.
               </div>
             )}
-            {mod.fields.map((f) => {
+            {mod.fields.map((f, index) => {
               if (
                 table === "media_kits" &&
                 f.persist === false &&
@@ -298,6 +312,14 @@ export function RecordForm({
                 table === "service_occurrences" &&
                 f.name === "scheduled_date" &&
                 values.schedule_status === "to_confirm"
+              )
+                return null;
+              if (
+                table === "opportunities" &&
+                ["media_kit_version_id", "media_kit_sent_at"].includes(
+                  f.name,
+                ) &&
+                values.media_kit_sent !== "yes"
               )
                 return null;
               const immutable =
@@ -332,9 +354,76 @@ export function RecordForm({
                   ids.includes(String(p.campaign_service_id)),
                 );
               }
+              if (f.name === "media_kit_version_id") {
+                choices = choices.filter(
+                  (kit) => kit.active || kit.id === values.media_kit_version_id,
+                );
+              }
               const searchableRelation =
                 f.type === "relation" &&
-                ["book_id", "publisher_id"].includes(f.name);
+                ["book_id", "publisher_id", "media_kit_version_id"].includes(
+                  f.name,
+                );
+              const section =
+                table === "opportunities"
+                  ? (
+                      {
+                        name: "Contato",
+                        contact_type: "Contato",
+                        author_id: "Contato",
+                        publisher_id: "Contato",
+                        publisher_contact_id: "Contato",
+                        source_channel: "Contato",
+                        responsible_user_id: "Contato",
+                        book_id: "Livro",
+                        media_kit_sent: "Media kit",
+                        media_kit_version_id: "Media kit",
+                        media_kit_sent_at: "Media kit",
+                        status: "Proposta e negociação",
+                        proposal_type: "Proposta e negociação",
+                        estimated_value: "Proposta e negociação",
+                        proposal_items: "Proposta e negociação",
+                        first_contact_at: "Acompanhamento",
+                        last_contact_at: "Acompanhamento",
+                        next_follow_up_at: "Acompanhamento",
+                        book_data_collected: "Acompanhamento",
+                        ai_cover_policy_informed: "Acompanhamento",
+                        ai_cover_policy_accepted_at: "Acompanhamento",
+                        notes: "Acompanhamento",
+                      } as Record<string, string>
+                    )[f.name]
+                  : undefined;
+              const sectionStarted =
+                !!section &&
+                !mod.fields.slice(0, index).some((previous) => {
+                  const previousSection = (
+                    {
+                      name: "Contato",
+                      contact_type: "Contato",
+                      author_id: "Contato",
+                      publisher_id: "Contato",
+                      publisher_contact_id: "Contato",
+                      source_channel: "Contato",
+                      responsible_user_id: "Contato",
+                      book_id: "Livro",
+                      media_kit_sent: "Media kit",
+                      media_kit_version_id: "Media kit",
+                      media_kit_sent_at: "Media kit",
+                      status: "Proposta e negociação",
+                      proposal_type: "Proposta e negociação",
+                      estimated_value: "Proposta e negociação",
+                      proposal_items: "Proposta e negociação",
+                      first_contact_at: "Acompanhamento",
+                      last_contact_at: "Acompanhamento",
+                      next_follow_up_at: "Acompanhamento",
+                      book_data_collected: "Acompanhamento",
+                      ai_cover_policy_informed: "Acompanhamento",
+                      ai_cover_policy_accepted_at: "Acompanhamento",
+                      notes: "Acompanhamento",
+                    } as Record<string, string>
+                  )[previous.name];
+                  return previousSection === section;
+                });
               const reg = register(f.name, {
                 required: f.required ? "Campo obrigatório." : false,
                 onChange: (e) => {
@@ -348,6 +437,14 @@ export function RecordForm({
                         String(assignment.responsible_user_id),
                       );
                   }
+                  if (
+                    f.name === "media_kit_sent" &&
+                    e.target.value === "yes" &&
+                    !values.media_kit_sent_at
+                  )
+                    setValue("media_kit_sent_at", today(), {
+                      shouldDirty: true,
+                    });
                   if (f.name === "book_id" && e.target.value) {
                     const book = data.books?.find(
                       (b) => b.id === e.target.value,
@@ -374,103 +471,130 @@ export function RecordForm({
                 },
               });
               return (
-                <label
-                  className={f.type === "textarea" ? "full" : ""}
-                  key={f.name}
-                  htmlFor={f.name}
-                >
-                  {f.label}
-                  {f.required ? " *" : ""}
-                  {f.type === "textarea" ? (
-                    <textarea id={f.name} rows={4} {...reg} />
-                  ) : f.type === "checkbox" ? (
-                    <input id={f.name} type="checkbox" {...reg} />
-                  ) : searchableRelation ? (
-                    <div>
-                      <input type="hidden" {...reg} />
-                      <RelationCombobox
-                        id={f.name}
-                        label={f.source!}
-                        choices={data[f.source!] ? choices : undefined}
-                        selectedId={values[f.name]}
-                        disabled={immutable}
-                        onSelect={(id) => {
-                          setValue(f.name, id, {
-                            shouldDirty: true,
-                            shouldValidate: true,
-                          });
-                          if (f.name === "book_id" && id) {
-                            const book = data.books?.find((item) => item.id === id);
-                            if (book) {
-                              if (mod.fields.some((item) => item.name === "author_id"))
-                                setValue("author_id", String(book.author_id ?? ""));
-                              if (
-                                mod.fields.some(
-                                  (item) => item.name === "publisher_id",
-                                )
-                              )
-                                setValue(
-                                  "publisher_id",
-                                  String(book.publisher_id ?? ""),
-                                );
-                            }
+                <Fragment key={f.name}>
+                  {sectionStarted && (
+                    <h3 className="form-section-title">{section}</h3>
+                  )}
+                  <label
+                    className={f.type === "textarea" ? "full" : ""}
+                    htmlFor={f.name}
+                  >
+                    {f.label}
+                    {f.required ? " *" : ""}
+                    {f.type === "textarea" ? (
+                      <textarea id={f.name} rows={4} {...reg} />
+                    ) : f.type === "checkbox" ? (
+                      <input id={f.name} type="checkbox" {...reg} />
+                    ) : searchableRelation ? (
+                      <div>
+                        <input type="hidden" {...reg} />
+                        <RelationCombobox
+                          id={f.name}
+                          source={f.source!}
+                          placeholder={
+                            f.name === "book_id"
+                              ? "Clique ou digite para buscar um livro"
+                              : f.name === "publisher_id"
+                                ? "Clique ou digite para buscar uma editora"
+                                : "Clique ou digite para buscar um media kit"
                           }
-                        }}
-                      />
-                    </div>
-                  ) : ["relation", "member", "select"].includes(f.type) ? (
-                    <select id={f.name} {...reg} disabled={immutable}>
-                      <option value="">Selecione</option>
-                      {f.type === "select"
-                        ? Object.entries(options[f.source!] ?? {}).map(
-                            ([v, l]) => (
-                              <option key={v} value={v}>
-                                {l}
+                          emptyLabel={
+                            f.name === "book_id"
+                              ? "Nenhum livro encontrado."
+                              : f.name === "publisher_id"
+                                ? "Nenhuma editora encontrada."
+                                : "Nenhum media kit encontrado."
+                          }
+                          choices={data[f.source!] ? choices : undefined}
+                          selectedId={values[f.name]}
+                          disabled={immutable}
+                          onSelect={(id) => {
+                            setValue(f.name, id, {
+                              shouldDirty: true,
+                              shouldValidate: true,
+                            });
+                            if (f.name === "book_id" && id) {
+                              const book = data.books?.find(
+                                (item) => item.id === id,
+                              );
+                              if (book) {
+                                if (
+                                  mod.fields.some(
+                                    (item) => item.name === "author_id",
+                                  )
+                                )
+                                  setValue(
+                                    "author_id",
+                                    String(book.author_id ?? ""),
+                                  );
+                                if (
+                                  mod.fields.some(
+                                    (item) => item.name === "publisher_id",
+                                  )
+                                )
+                                  setValue(
+                                    "publisher_id",
+                                    String(book.publisher_id ?? ""),
+                                  );
+                              }
+                            }
+                          }}
+                        />
+                      </div>
+                    ) : ["relation", "member", "select"].includes(f.type) ? (
+                      <select id={f.name} {...reg} disabled={immutable}>
+                        <option value="">Selecione</option>
+                        {f.type === "select"
+                          ? Object.entries(options[f.source!] ?? {}).map(
+                              ([v, l]) => (
+                                <option key={v} value={v}>
+                                  {l}
+                                </option>
+                              ),
+                            )
+                          : choices.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {f.type === "member"
+                                  ? String(c.full_name || c.email)
+                                  : labelOf(c, f.source!)}
                               </option>
-                            ),
-                          )
-                        : choices.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {f.type === "member"
-                                ? String(c.full_name || c.email)
-                                : labelOf(c, f.source!)}
-                            </option>
-                          ))}
-                    </select>
-                  ) : (
-                    <input
-                      id={f.name}
-                      type={
-                        f.type === "money" || f.type === "integer"
-                          ? "number"
-                          : f.type
-                      }
-                      step={
-                        f.type === "money"
-                          ? "0.01"
+                            ))}
+                      </select>
+                    ) : (
+                      <input
+                        id={f.name}
+                        type={
+                          f.type === "money" || f.type === "integer"
+                            ? "number"
+                            : f.type
+                        }
+                        step={
+                          f.type === "money"
+                            ? "0.01"
+                            : f.type === "integer"
+                              ? "1"
+                              : undefined
+                        }
+                        min={
+                          f.type === "money"
+                            ? "0"
                           : f.type === "integer"
-                            ? "1"
-                            : undefined
-                      }
-                      min={
-                        f.type === "money"
-                          ? "0"
-                          : f.type === "integer"
-                            ? f.name === "release_year"
+                            ? ["release_year", "year"].includes(f.name)
                               ? "1000"
                               : "1"
-                            : undefined
-                      }
-                      {...reg}
-                      readOnly={immutable}
-                    />
-                  )}
-                  {errors[f.name] && (
-                    <span role="alert" className="field-error">
-                      {String(errors[f.name]?.message)}
-                    </span>
-                  )}
-                </label>
+                              : undefined
+                        }
+                        {...reg}
+                        readOnly={immutable}
+                      />
+                    )}
+                    {errors[f.name] && (
+                      <span role="alert" className="field-error">
+                        {String(errors[f.name]?.message)}
+                      </span>
+                    )}
+                  </label>
+                </Fragment>
               );
             })}
             {["books", "client_assets", "media_kits"].includes(table) && (

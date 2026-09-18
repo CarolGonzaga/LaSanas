@@ -101,6 +101,10 @@ export async function saveRecord(
     const mediaKitInput = input as Record<string, unknown>;
     const registerMediaKitSend =
       table === "media_kits" && mediaKitInput.register_sent === true;
+    const opportunityMediaKitSent =
+      table === "opportunities"
+        ? z.enum(["yes", "no"]).parse(mediaKitInput.media_kit_sent)
+        : null;
     const sentOpportunityId = registerMediaKitSend
       ? z.uuid().parse(mediaKitInput.sent_opportunity_id)
       : null;
@@ -110,13 +114,27 @@ export async function saveRecord(
           .parse(mediaKitInput.sent_channel)
       : null;
     const values = parseRecord(table, input);
+    if (table === "opportunities") {
+      if (opportunityMediaKitSent === "no") {
+        values.media_kit_version_id = null;
+        values.media_kit_sent_at = null;
+      } else {
+        if (!values.media_kit_version_id)
+          throw new Error("Selecione o media kit enviado.");
+        if (!values.media_kit_sent_at)
+          throw new Error("Informe a data de envio do media kit.");
+      }
+    }
     if (
       table === "service_occurrences" &&
       values.schedule_status === "scheduled" &&
       !values.scheduled_date
     )
       throw new Error("Informe a data ou marque o serviço como a confirmar.");
-    if (table === "service_occurrences" && values.schedule_status === "to_confirm")
+    if (
+      table === "service_occurrences" &&
+      values.schedule_status === "to_confirm"
+    )
       values.scheduled_date = null;
     if (table === "campaigns" && !id && upload?.get("book_club_slot_id"))
       values.book_club_slot_id = z

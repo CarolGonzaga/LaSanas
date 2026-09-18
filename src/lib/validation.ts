@@ -24,8 +24,8 @@ export function parseRecord(table: string, input: unknown) {
       validator = z.coerce
         .number()
         .int()
-        .min(f.name === "release_year" ? 1000 : 1)
-        .max(f.name === "release_year" ? 9999 : 10000);
+        .min(["release_year", "year"].includes(f.name) ? 1000 : 1)
+        .max(["release_year", "year"].includes(f.name) ? 9999 : 10000);
     if (f.type === "money")
       validator = z
         .string()

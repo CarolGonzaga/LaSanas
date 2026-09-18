@@ -393,12 +393,7 @@ export function Workbench({
       }).format(new Date(String(value)));
     return String(value);
   }
-  function cards(
-    table: string,
-    rows: Row[],
-    compact = false,
-    className = "",
-  ) {
+  function cards(table: string, rows: Row[], compact = false, className = "") {
     const m = moduleByTable(table)!;
     return rows.length ? (
       <div
@@ -421,7 +416,9 @@ export function Workbench({
           const bookCover = table === "books" ? coverUrl(row) : null;
           const serviceCampaign =
             table === "campaign_services"
-              ? data.campaigns?.find((campaign) => campaign.id === row.campaign_id)
+              ? data.campaigns?.find(
+                  (campaign) => campaign.id === row.campaign_id,
+                )
               : null;
           const serviceBook = serviceCampaign?.book_id
             ? data.books?.find((book) => book.id === serviceCampaign.book_id)
@@ -491,14 +488,14 @@ export function Workbench({
                   : table === "books" && className === "author-book-list"
                     ? [
                         row.release_year ? String(row.release_year) : "",
-                        row.publisher_id
-                          ? display(m, row, "publisher_id")
-                          : "",
+                        row.publisher_id ? display(m, row, "publisher_id") : "",
                       ]
                         .filter(Boolean)
                         .join(" · ")
-                  : ref.map((f) => display(m, row, f.name)).join(" · ") ||
-                    String(row.email ?? row.description ?? row.category ?? "")}
+                    : ref.map((f) => display(m, row, f.name)).join(" · ") ||
+                      String(
+                        row.email ?? row.description ?? row.category ?? "",
+                      )}
               </p>
               {table === "books" && <StatusBadge value={row.cover_ai_status} />}
               {amount !== undefined && (
@@ -509,19 +506,21 @@ export function Workbench({
                 <p className="record-meta open-date">
                   <CalendarDays size={13} /> Data em aberto
                 </p>
-              ) : (row.due_date ||
-                row.scheduled_date ||
-                row.next_follow_up_at) && (
-                <p className="record-meta">
-                  <CalendarDays size={13} />
-                  {date(
-                    String(
-                      row.due_date ??
-                        row.scheduled_date ??
-                        row.next_follow_up_at,
-                    ).slice(0, 10),
-                  )}
-                </p>
+              ) : (
+                (row.due_date ||
+                  row.scheduled_date ||
+                  row.next_follow_up_at) && (
+                  <p className="record-meta">
+                    <CalendarDays size={13} />
+                    {date(
+                      String(
+                        row.due_date ??
+                          row.scheduled_date ??
+                          row.next_follow_up_at,
+                      ).slice(0, 10),
+                    )}
+                  </p>
+                )
               )}
               {table === "campaign_services" && progress(row)}
               {table === "communication_logs" && (
@@ -570,6 +569,34 @@ export function Workbench({
         </div>
         {openDate && <span className="badge warning">Data a confirmar</span>}
       </div>
+    );
+  }
+  function mediaKitCards(rows: Row[]) {
+    const groups = new Map<string, Row[]>();
+    for (const kit of [...rows].sort((a, b) => {
+      const yearDifference = Number(b.year ?? 0) - Number(a.year ?? 0);
+      return (
+        yearDifference ||
+        labelOf(a, "media_kits").localeCompare(
+          labelOf(b, "media_kits"),
+          "pt-BR",
+        )
+      );
+    })) {
+      const year = String(kit.year ?? "Sem ano");
+      groups.set(year, [...(groups.get(year) ?? []), kit]);
+    }
+    return rows.length ? (
+      <div className="media-kit-groups">
+        {[...groups.entries()].map(([year, kits]) => (
+          <section className="media-kit-year" key={year}>
+            <h3>{year}</h3>
+            {cards("media_kits", kits)}
+          </section>
+        ))}
+      </div>
+    ) : (
+      cards("media_kits", rows)
     );
   }
   function detail(m: Module, r: Row) {
@@ -757,16 +784,44 @@ export function Workbench({
             <section className="panel detail-panel">
               {actions(m.table, r)}
               <dl className="detail-grid">
-                {m.fields.map((f) => (
-                  <div
-                    key={f.name}
-                    className={f.type === "textarea" ? "full" : ""}
-                  >
-                    <dt>{f.label}</dt>
-                    <dd>{display(m, r, f.name)}</dd>
-                  </div>
-                ))}
+                {m.fields
+                  .filter(
+                    (f) =>
+                      f.persist !== false &&
+                      !(
+                        m.table === "opportunities" &&
+                        ["media_kit_version_id", "media_kit_sent_at"].includes(
+                          f.name,
+                        )
+                      ),
+                  )
+                  .map((f) => (
+                    <div
+                      key={f.name}
+                      className={f.type === "textarea" ? "full" : ""}
+                    >
+                      <dt>{f.label}</dt>
+                      <dd>{display(m, r, f.name)}</dd>
+                    </div>
+                  ))}
               </dl>
+              {m.table === "opportunities" &&
+                (() => {
+                  const kit = (data.media_kits ?? []).find(
+                    (item) => item.id === r.media_kit_version_id,
+                  );
+                  const sent = !!r.media_kit_version_id;
+                  return (
+                    <div className="opportunity-media-summary">
+                      <dt>Media kit</dt>
+                      <dd>
+                        {sent
+                          ? `${kit ? labelOf(kit, "media_kits") : "Media kit"} — Enviado em ${date(String(r.media_kit_sent_at).slice(0, 10))}`
+                          : "Não enviado"}
+                      </dd>
+                    </div>
+                  );
+                })()}
               {m.table === "campaign_services" && progress(r)}
               {["client_assets", "media_kits", "books"].includes(m.table) &&
                 (r.storage_path ||
@@ -1046,7 +1101,7 @@ export function Workbench({
               Adicionar versão
             </button>
           </div>
-          {cards("media_kits", data.media_kits ?? [])}
+          {mediaKitCards(data.media_kits ?? [])}
         </section>
       </>
     );

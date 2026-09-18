@@ -1258,6 +1258,75 @@ input[type="checkbox"] {
 .record-form .notice {
   margin: 0;
 }
+.form-section-title {
+  grid-column: 1 / -1;
+  margin: 8px 0 -3px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.form-section-title:first-child {
+  border-top: 0;
+  margin-top: 0;
+  padding-top: 0;
+}
+.opportunity-dialog {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+.opportunity-dialog .dialog-heading {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 22px 26px 6px;
+}
+.opportunity-dialog > .muted {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0 26px 14px;
+}
+.opportunity-form {
+  overflow-y: auto;
+  padding: 0 26px 20px;
+}
+.opportunity-form .dialog-actions {
+  position: sticky;
+  bottom: 0;
+  margin-bottom: -20px;
+  padding: 15px 0 20px;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+}
+.opportunity-media-summary {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.opportunity-media-summary dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.opportunity-media-summary dd {
+  margin: 5px 0 0;
+  font-weight: 600;
+}
+.media-kit-groups {
+  display: grid;
+  gap: 26px;
+}
+.media-kit-year h3 {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
@@ -1688,6 +1757,19 @@ input[type="checkbox"] {
     padding: 20px;
     max-height: calc(100dvh - 24px);
     width: calc(100vw - 24px);
+  }
+  .opportunity-dialog .dialog-heading {
+    padding: 18px 20px 6px;
+  }
+  .opportunity-dialog > .muted {
+    padding: 0 20px 12px;
+  }
+  .opportunity-form {
+    padding: 0 20px 16px;
+  }
+  .opportunity-form .dialog-actions {
+    margin-bottom: -16px;
+    padding-bottom: 16px;
   }
   .preview-banner {
     flex-direction: column;

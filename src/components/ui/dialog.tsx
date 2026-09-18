@@ -8,15 +8,19 @@ export function DialogContent({
   title,
   description,
   children,
+  className,
 }: {
   title: string;
   description?: string;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="dialog-overlay" />
-      <DialogPrimitive.Content className="dialog-content">
+      <DialogPrimitive.Content
+        className={"dialog-content " + (className ?? "")}
+      >
         <div className="dialog-heading">
           <DialogPrimitive.Title>{title}</DialogPrimitive.Title>
           <DialogPrimitive.Close className="icon-button" aria-label="Fechar">

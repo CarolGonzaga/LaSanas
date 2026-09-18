@@ -102,7 +102,7 @@ export function ActionDialog({
                 <option value="">Selecione</option>
                 {data.media_kits?.map((k) => (
                   <option value={k.id} key={k.id}>
-                    {String(k.name)} • {String(k.version)}
+                    {String(k.name)} — {String(k.year ?? k.version)}
                   </option>
                 ))}
               </select>

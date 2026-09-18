@@ -27,6 +27,7 @@ for (const name of [
   "202609170004_book_club_conversion.sql",
   "202609170005_release_year_and_open_service_dates.sql",
   "202609170006_create_author_service.sql",
+  "202609180007_media_kit_year.sql",
 ]) {
   const source = await readFile(
     new URL("../supabase/migrations/" + name, import.meta.url),
@@ -78,9 +79,7 @@ try {
     "insert into books(workspace_id,author_id,title,cover_ai_status) values($1,$2,'Livro teste','confirmed_ai') returning id",
     [u1, author.id],
   );
-  await sql("update books set release_year=2024 where id=$1", [
-    book.id,
-  ]);
+  await sql("update books set release_year=2024 where id=$1", [book.id]);
   assert.equal(
     (await sql("select release_year from books where id=$1", [book.id]))[0]
       .release_year,
@@ -156,9 +155,11 @@ try {
     datedOccurrence.id,
   ]);
   assert.equal(
-    (await sql("select status from service_occurrences where id=$1", [
-      datedOccurrence.id,
-    ]))[0].status,
+    (
+      await sql("select status from service_occurrences where id=$1", [
+        datedOccurrence.id,
+      ])
+    )[0].status,
     "completed",
   );
   assert.equal(
@@ -254,9 +255,10 @@ try {
   );
   console.log("PASS criação, conclusão e redimensionamento de ocorrências");
   const [kit] = await sql(
-    "insert into media_kits(workspace_id,name,version,external_url,active) values($1,'Kit','2026','https://example.com/kit.pdf',true) returning id",
+    "insert into media_kits(workspace_id,name,version,year,external_url,active) values($1,'Kit','v1',2026,'https://example.com/kit.pdf',true) returning id,year",
     [u1],
   );
+  assert.equal(kit.year, 2026);
   await sql("select mark_media_kit($1,$2,'email')", [opp.id, kit.id]);
   assert.equal(
     (

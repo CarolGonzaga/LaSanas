@@ -100,6 +100,10 @@ export const options: Record<string, Record<string, string>> = {
     to_confirm: "A confirmar",
     scheduled: "Data definida",
   },
+  mediaKitSent: {
+    no: "Não",
+    yes: "Sim",
+  },
   payment: {
     pending: "Pendente",
     paid: "Pago",
@@ -529,13 +533,6 @@ export const modules: Module[] = [
         source: "publisher_contacts",
       },
       {
-        name: "book_id",
-        label: "Livro",
-        type: "relation",
-        required: false,
-        source: "books",
-      },
-      {
         name: "source_channel",
         label: "Canal de origem",
         type: "select",
@@ -549,11 +546,58 @@ export const modules: Module[] = [
         required: false,
       },
       {
+        name: "book_id",
+        label: "Livro",
+        type: "relation",
+        required: false,
+        source: "books",
+      },
+      {
+        name: "media_kit_sent",
+        label: "Media kit enviado?",
+        type: "select",
+        required: true,
+        source: "mediaKitSent",
+        persist: false,
+      },
+      {
+        name: "media_kit_version_id",
+        label: "Qual media kit foi enviado?",
+        type: "relation",
+        required: false,
+        source: "media_kits",
+      },
+      {
+        name: "media_kit_sent_at",
+        label: "Data de envio",
+        type: "date",
+        required: false,
+      },
+      {
         name: "status",
         label: "Etapa",
         type: "select",
         required: true,
         source: "opportunity",
+      },
+      {
+        name: "proposal_type",
+        label: "Tipo de proposta",
+        type: "select",
+        required: true,
+        source: "proposal",
+      },
+      {
+        name: "estimated_value",
+        label: "Valor estimado",
+        type: "money",
+        required: false,
+      },
+      {
+        name: "proposal_items",
+        label: "Itens da proposta / quantidades / datas",
+        type: "textarea",
+        required: false,
       },
       {
         name: "first_contact_at",
@@ -574,13 +618,6 @@ export const modules: Module[] = [
         required: false,
       },
       {
-        name: "media_kit_version_id",
-        label: "Versão do media kit",
-        type: "relation",
-        required: false,
-        source: "media_kits",
-      },
-      {
         name: "book_data_collected",
         label: "Dados do livro coletados",
         type: "checkbox",
@@ -596,25 +633,6 @@ export const modules: Module[] = [
         name: "ai_cover_policy_accepted_at",
         label: "Política aceita em",
         type: "datetime-local",
-        required: false,
-      },
-      {
-        name: "proposal_type",
-        label: "Tipo de proposta",
-        type: "select",
-        required: true,
-        source: "proposal",
-      },
-      {
-        name: "estimated_value",
-        label: "Valor estimado",
-        type: "money",
-        required: false,
-      },
-      {
-        name: "proposal_items",
-        label: "Itens da proposta / quantidades / datas",
-        type: "textarea",
         required: false,
       },
       {
@@ -724,6 +742,12 @@ export const modules: Module[] = [
         name: "version",
         label: "Versão",
         type: "text",
+        required: true,
+      },
+      {
+        name: "year",
+        label: "Ano",
+        type: "integer",
         required: true,
       },
       {
@@ -1564,8 +1588,8 @@ export const ACTIVE_OPPORTUNITY_STATUSES = new Set([
 ]);
 export const isActiveOpportunity = (row: Row) =>
   !row.archived_at && ACTIVE_OPPORTUNITY_STATUSES.has(String(row.status));
-export const labelOf = (row: Row, table: string): string =>
-  String(
+export const labelOf = (row: Row, table: string): string => {
+  const label = String(
     row[moduleByTable(table)?.label ?? "name"] ||
       row.custom_name ||
       row.description ||
@@ -1573,3 +1597,7 @@ export const labelOf = (row: Row, table: string): string =>
       row.title ||
       row.id.slice(0, 8),
   );
+  return table === "media_kits" && row.year
+    ? label + " — " + String(row.year)
+    : label;
+};
