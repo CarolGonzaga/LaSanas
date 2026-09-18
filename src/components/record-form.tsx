@@ -194,13 +194,17 @@ export function RecordForm({
               const searchableRelation =
                 f.type === "relation" &&
                 ["book_id", "publisher_id"].includes(f.name);
-              const relationQuery = relationQueries[f.name] ?? "";
+              const selectedChoice = choices.find(
+                (choice) => choice.id === values[f.name],
+              );
+              const relationQuery = Object.hasOwn(relationQueries, f.name)
+                ? relationQueries[f.name]
+                : selectedChoice
+                  ? labelOf(selectedChoice, f.source!)
+                  : "";
               const visibleChoices =
                 searchableRelation
                   ? (() => {
-                    const selected = choices.find(
-                        (choice) => choice.id === values[f.name],
-                      );
                       const matches = relationQuery.trim()
                         ? choices.filter((choice) =>
                             labelOf(choice, f.source!)
@@ -210,9 +214,11 @@ export function RecordForm({
                               ),
                           )
                         : choices.slice(0, 50);
-                      return selected &&
-                        !matches.some((b) => b.id === selected.id)
-                        ? [selected, ...matches]
+                      return selectedChoice &&
+                        !matches.some(
+                          (choice) => choice.id === selectedChoice.id,
+                        )
+                        ? [selectedChoice, ...matches]
                         : matches;
                     })()
                   : choices;
@@ -269,6 +275,7 @@ export function RecordForm({
                   ) : searchableRelation ? (
                     <div className="relation-search">
                       <input
+                        id={f.name}
                         type="search"
                         aria-label={"Buscar " + f.label.toLocaleLowerCase("pt-BR")}
                         placeholder={
@@ -277,22 +284,49 @@ export function RecordForm({
                           " para filtrar"
                         }
                         value={relationQuery}
-                        onChange={(e) =>
+                        list={f.name + "-options"}
+                        onChange={(e) => {
+                          const query = e.target.value;
+                          const choice = choices.find(
+                            (item) =>
+                              labelOf(item, f.source!).toLocaleLowerCase("pt-BR") ===
+                              query.toLocaleLowerCase("pt-BR"),
+                          );
                           setRelationQueries((current) => ({
                             ...current,
-                            [f.name]: e.target.value,
-                          }))
-                        }
+                            [f.name]: query,
+                          }));
+                          setValue(f.name, String(choice?.id ?? ""), {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          });
+                          if (f.name === "book_id" && choice) {
+                            if (mod.fields.some((item) => item.name === "author_id"))
+                              setValue("author_id", String(choice.author_id ?? ""));
+                            if (
+                              mod.fields.some(
+                                (item) => item.name === "publisher_id",
+                              )
+                            )
+                              setValue(
+                                "publisher_id",
+                                String(choice.publisher_id ?? ""),
+                              );
+                          }
+                        }}
                         disabled={immutable}
                       />
-                      <select id={f.name} {...reg} disabled={immutable}>
-                        <option value="">Selecione {f.name === "book_id" ? "um livro" : "uma editora"}</option>
+                      <input type="hidden" {...reg} />
+                      <datalist id={f.name + "-options"}>
                         {visibleChoices.map((choice) => (
-                          <option key={choice.id} value={choice.id}>
+                          <option
+                            key={choice.id}
+                            value={labelOf(choice, f.source!)}
+                          >
                             {labelOf(choice, f.source!)}
                           </option>
                         ))}
-                      </select>
+                      </datalist>
                       {!relationQuery && choices.length > 50 && (
                         <small>
                           Digite para localizar entre {choices.length} {f.name === "book_id" ? "livros" : "editoras"}.
