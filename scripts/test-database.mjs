@@ -26,6 +26,7 @@ for (const name of [
   "202609170003_payment_and_legacy_assets.sql",
   "202609170004_book_club_conversion.sql",
   "202609170005_release_year_and_open_service_dates.sql",
+  "202609170006_create_author_service.sql",
 ]) {
   const source = await readFile(
     new URL("../supabase/migrations/" + name, import.meta.url),
@@ -114,6 +115,61 @@ try {
   await sql("update books set cover_ai_status='confirmed_human' where id=$1", [
     book.id,
   ]);
+  const [reelsType] = await sql(
+    "insert into service_types(workspace_id,name,default_price,active) values($1,'Reels',0,true) returning id",
+    [u1],
+  );
+  const [directService] = await sql(
+    "select create_author_service($1,$2,$3,$4,1,0,'Aguardar recebimento e leitura','to_confirm',null) as id",
+    [u1, author.id, book.id, reelsType.id],
+  );
+  const [openOccurrence] = await sql(
+    "select * from service_occurrences where campaign_service_id=$1",
+    [directService.id],
+  );
+  assert.equal(
+    (
+      await sql(
+        "select c.author_id,c.book_id from campaign_services s join campaigns c on c.id=s.campaign_id where s.id=$1",
+        [directService.id],
+      )
+    )[0].author_id,
+    author.id,
+  );
+  assert.equal(openOccurrence.schedule_status, "to_confirm");
+  assert.equal(openOccurrence.scheduled_date, null);
+  await sql(
+    "update service_occurrences set scheduled_date='2026-10-25' where id=$1",
+    [openOccurrence.id],
+  );
+  const [datedService] = await sql(
+    "select create_author_service($1,$2,$3,$4,1,0,null,'scheduled','2026-10-25') as id",
+    [u1, author.id, book.id, reelsType.id],
+  );
+  const [datedOccurrence] = await sql(
+    "select *,to_char(scheduled_date,'YYYY-MM-DD') as scheduled_day from service_occurrences where campaign_service_id=$1",
+    [datedService.id],
+  );
+  assert.equal(datedOccurrence.schedule_status, "scheduled");
+  assert.equal(datedOccurrence.scheduled_day, "2026-10-25");
+  await sql("update service_occurrences set status='completed' where id=$1", [
+    datedOccurrence.id,
+  ]);
+  assert.equal(
+    (await sql("select status from service_occurrences where id=$1", [
+      datedOccurrence.id,
+    ]))[0].status,
+    "completed",
+  );
+  assert.equal(
+    (
+      await sql("select schedule_status from service_occurrences where id=$1", [
+        openOccurrence.id,
+      ])
+    )[0].schedule_status,
+    "scheduled",
+  );
+  console.log("PASS serviço direto da autora e data a confirmar");
   await expectFailure(
     "update campaigns set status='active' where id=$1",
     /Pagamento inicial/,

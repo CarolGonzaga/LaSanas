@@ -35,6 +35,7 @@ import {
 import type { Dataset } from "@/lib/workspace";
 import { date, money, today } from "@/lib/format";
 import { RecordForm } from "./record-form";
+import { AuthorServiceForm } from "./author-service-form";
 import { Dialog, DialogContent } from "./ui/dialog";
 import { ConfirmDialog } from "./ui/confirm-dialog";
 import { OperationalDashboard, UnifiedAgenda } from "./operational";
@@ -64,8 +65,10 @@ export function Workbench({
   const [editor, setEditor] = useState<{
     table: string;
     row?: Partial<Row>;
-    onSaved?: (id: string) => void;
   } | null>(null);
+  const [authorServiceAuthor, setAuthorServiceAuthor] = useState<Row | null>(
+    null,
+  );
   const [query, setQuery] = useState(""),
     [filter, setFilter] = useState(""),
     [tab, setTab] = useState("overview");
@@ -88,11 +91,7 @@ export function Workbench({
   const mod = moduleByRoute(route);
   const record =
     mod && id ? data[mod.table]?.find((r) => r.id === id) : undefined;
-  const edit = (
-    table: string,
-    row?: Partial<Row>,
-    onSaved?: (id: string) => void,
-  ) => setEditor({ table, row, onSaved });
+  const edit = (table: string, row?: Partial<Row>) => setEditor({ table, row });
   const href = (table: string, id?: string) =>
     prefix + "/" + moduleByTable(table)!.route + (id ? "/" + id : "");
   const relatedLabel = (table: string, id: unknown) => {
@@ -388,13 +387,18 @@ export function Workbench({
       }).format(new Date(String(value)));
     return String(value);
   }
-  function cards(table: string, rows: Row[], compact = false) {
+  function cards(
+    table: string,
+    rows: Row[],
+    compact = false,
+    className = "",
+  ) {
     const m = moduleByTable(table)!;
     return rows.length ? (
       <div
         className={
           compact
-            ? "record-list"
+            ? "record-list " + className
             : "record-grid" + (table === "books" ? " book-record-grid" : "")
         }
       >
@@ -520,6 +524,9 @@ export function Workbench({
       (o) => o.campaign_service_id === service.id && o.status !== "cancelled",
     );
     const done = occ.filter((o) => o.status === "completed").length;
+    const openDate = occ.some(
+      (o) => o.status === "pending" && o.schedule_status === "to_confirm",
+    );
     return (
       <div className="service-progress">
         <div>
@@ -535,6 +542,7 @@ export function Workbench({
             }}
           />
         </div>
+        {openDate && <span className="badge warning">Data a confirmar</span>}
       </div>
     );
   }
@@ -827,35 +835,30 @@ export function Workbench({
                 </button>
               )}
               {relatedTab.table === "campaign_services" &&
-                ["authors", "publishers"].includes(m.table) && (
+                m.table === "authors" && (
                   <button
                     className="button small"
-                    onClick={() =>
-                      edit(
-                        "campaigns",
-                        {
-                          name: "Parceria • " + labelOf(r, m.table),
-                          [m.table === "authors" ? "author_id" : "publisher_id"]:
-                            r.id,
-                          responsible_user_id: userId,
-                          total_value: 0,
-                        },
-                        (campaignId) => router.push(href("campaigns", campaignId)),
-                      )
-                    }
+                    onClick={() => setAuthorServiceAuthor(r)}
                   >
                     <Plus size={16} /> Adicionar serviço
                   </button>
                 )}
             </div>
             {relatedTab.table === "campaign_services" &&
-              ["authors", "publishers"].includes(m.table) && (
+              m.table === "authors" && (
                 <p className="section-help">
-                  Primeiro registre a parceria; em seguida, inclua o serviço e
-                  deixe a execução como “Data a confirmar” se necessário.
+                  Registre o serviço e deixe a execução como “Data a confirmar”
+                  quando a data ainda depender do recebimento ou da leitura.
                 </p>
               )}
-            {cards(relatedTab.table, relatedTab.rows, true)}
+            {cards(
+              relatedTab.table,
+              relatedTab.rows,
+              true,
+              m.table === "authors" && relatedTab.table === "books"
+                ? "author-book-list"
+                : "",
+            )}
           </section>
         ) : null}
       </>
@@ -1164,7 +1167,15 @@ export function Workbench({
           data={data}
           open
           onClose={() => setEditor(null)}
-          onSaved={editor.onSaved}
+          readOnly={readOnly}
+        />
+      )}
+      {authorServiceAuthor && (
+        <AuthorServiceForm
+          author={authorServiceAuthor}
+          data={data}
+          open
+          onClose={() => setAuthorServiceAuthor(null)}
           readOnly={readOnly}
         />
       )}

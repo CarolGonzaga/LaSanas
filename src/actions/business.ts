@@ -45,6 +45,49 @@ function checked(error: { message: string; code?: string } | null) {
 function refresh() {
   revalidatePath("/", "layout");
 }
+const authorServiceInput = z.object({
+  authorId: z.uuid(),
+  bookId: z.uuid().nullable(),
+  serviceTypeId: z.uuid(),
+  quantity: z.coerce.number().int().min(1).max(600),
+  unitPrice: z
+    .string()
+    .regex(
+      /^\d{1,10}(\.\d{1,2})?$/,
+      "Informe um valor positivo com até duas casas decimais.",
+    ),
+  notes: z.string().trim().max(20000).nullable(),
+  scheduleStatus: z.enum(["to_confirm", "scheduled"]),
+  scheduledDate: z.iso.date().nullable(),
+});
+export async function createAuthorService(input: unknown): Promise<Result> {
+  try {
+    const { db, workspace } = await requireContext();
+    const values = authorServiceInput.parse(input);
+    if (values.scheduleStatus === "scheduled" && !values.scheduledDate)
+      throw new Error("Informe a data ou marque o serviço como a confirmar.");
+    const { data, error } = await db.rpc("create_author_service", {
+      p_workspace: workspace.id,
+      p_author: values.authorId,
+      p_book: values.bookId,
+      p_service_type: values.serviceTypeId,
+      p_quantity: values.quantity,
+      p_unit_price: values.unitPrice,
+      p_notes: values.notes || null,
+      p_schedule_status: values.scheduleStatus,
+      p_scheduled_date: values.scheduledDate,
+    });
+    checked(error);
+    refresh();
+    return {
+      ok: true,
+      id: String(data),
+      message: "Serviço adicionado à autora.",
+    };
+  } catch (error) {
+    return failure(error);
+  }
+}
 export async function saveRecord(
   table: string,
   id: string | null,
