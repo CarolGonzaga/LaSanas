@@ -30,6 +30,7 @@ for (const name of [
   "202609180007_media_kit_year.sql",
   "202609180008_manage_campaigns.sql",
   "202609180009_final_audit_fixes.sql",
+  "202609180010_production_home_and_assignment.sql",
 ]) {
   const source = await readFile(
     new URL("../supabase/migrations/" + name, import.meta.url),

@@ -249,6 +249,12 @@ export function RecordForm({
     defaultValues: defaults(table, row) as DefaultValues<Values>,
   });
   const values = useWatch({ control });
+  useEffect(() => {
+    if (table === "campaign_services" && !row?.id && !values.assigned_to) {
+      const defaultAssignee = data.workspace_settings?.[0]?.default_production_user_id;
+      if (defaultAssignee) setValue("assigned_to", String(defaultAssignee));
+    }
+  }, [data.workspace_settings, row?.id, setValue, table, values.assigned_to]);
   function close() {
     if (isDirty || file) setDiscard(true);
     else onClose();

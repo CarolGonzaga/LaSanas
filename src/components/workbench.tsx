@@ -22,6 +22,7 @@ import {
   removeRecord,
   assetUrl,
   saveRecord,
+  saveWorkspaceSettings,
 } from "@/actions/business";
 import {
   modules,
@@ -38,7 +39,7 @@ import { RecordForm } from "./record-form";
 import { AuthorServiceForm } from "./author-service-form";
 import { Dialog, DialogContent } from "./ui/dialog";
 import { ConfirmDialog } from "./ui/confirm-dialog";
-import { OperationalDashboard, UnifiedAgenda } from "./operational";
+import { OperationalDashboard, ProductionDashboard, UnifiedAgenda } from "./operational";
 import { ThemeSelect } from "./theme-toggle";
 
 import { StatusBadge } from "./status-badge";
@@ -51,6 +52,7 @@ export function Workbench({
   email,
   userId,
   readOnly = false,
+  homeView = "management",
 }: {
   route: string;
   id?: string;
@@ -59,6 +61,7 @@ export function Workbench({
   email: string;
   userId: string;
   readOnly?: boolean;
+  homeView?: string;
 }) {
   const router = useRouter();
   const prefix = readOnly ? "/preview" : "";
@@ -1053,6 +1056,15 @@ export function Workbench({
     );
   }
   function settings() {
+    const defaultProductionUserId = String(data.workspace_settings?.[0]?.default_production_user_id ?? "");
+    const updateSettings = (input: { defaultProductionUserId: string | null; memberId?: string; homeView?: string }) => start(async () => {
+      if (readOnly) {
+        toast.info("Entre com sua conta para salvar dados reais.");
+        return;
+      }
+      const result = await saveWorkspaceSettings(input);
+      if (result.ok) { toast.success(result.message); router.refresh(); } else toast.error(result.message);
+    });
     return (
       <>
         <div className="page-header">
@@ -1073,6 +1085,12 @@ export function Workbench({
           </section>
           <section className="panel">
             <h2>Equipe</h2>
+            <label className="settings-select">Responsável padrão pela produção
+              <select value={defaultProductionUserId} disabled={workspace?.role !== "admin" || busy} onChange={(event) => updateSettings({ defaultProductionUserId: event.target.value || null })}>
+                <option value="">Nenhuma responsável definida</option>
+                {(data.profiles ?? []).filter((profile) => profile.active).map((profile) => <option key={profile.id} value={profile.id}>{String(profile.full_name || profile.email)}</option>)}
+              </select>
+            </label>
             {data.profiles?.map((p) => (
               <div className="team-row" key={p.id}>
                 <span className="avatar">
@@ -1086,6 +1104,11 @@ export function Workbench({
                   {p.active ? "Ativa" : "Inativa"} ·{" "}
                   {p.role === "admin" ? "Admin" : "Integrante"}
                 </span>
+                <label className="settings-select compact">Página inicial
+                  <select value={String(p.home_view ?? "management")} disabled={workspace?.role !== "admin" || busy} onChange={(event) => updateSettings({ defaultProductionUserId: defaultProductionUserId || null, memberId: p.id, homeView: event.target.value })}>
+                    <option value="management">Gestão</option><option value="production">Meu dia / Produção</option>
+                  </select>
+                </label>
               </div>
             ))}
             {!data.profiles?.length && (
@@ -1127,6 +1150,15 @@ export function Workbench({
   let content;
   if (route === "dashboard")
     content = (
+      homeView === "production" ? (
+        <ProductionDashboard
+          data={data}
+          userId={userId}
+          onStatus={(itemId, source, status) =>
+            run("update-work-status", { id: itemId, workspace_id: workspace?.id ?? "" }, { source, status })
+          }
+        />
+      ) : (
       <OperationalDashboard
         data={data}
         edit={edit}
@@ -1135,6 +1167,7 @@ export function Workbench({
           run(t === "tasks" ? "complete-task" : "complete-occurrence", r)
         }
       />
+      )
     );
   else if (route === "agenda")
     content = <UnifiedAgenda data={data} edit={edit} />;

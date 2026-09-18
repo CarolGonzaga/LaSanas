@@ -13,7 +13,7 @@ export async function getContext() {
   if (error || !user) redirect("/login");
   const { data: memberships, error: membershipError } = await db
     .from("workspace_members")
-    .select("workspace_id,role,workspaces(name)")
+    .select("workspace_id,role,home_view,workspaces(name,default_production_user_id)")
     .eq("user_id", user.id)
     .eq("active", true);
   if (membershipError)
@@ -34,6 +34,8 @@ export async function getContext() {
       ? {
           id: String(membership.workspace_id),
           role: String(membership.role),
+          homeView: String(membership.home_view ?? "management"),
+          defaultProductionUserId: (membership.workspaces as unknown as { default_production_user_id?: string | null })?.default_production_user_id ?? null,
           name: String(
             (membership.workspaces as unknown as { name: string })?.name ??
               "Meu negócio",
@@ -107,6 +109,9 @@ export async function loadWorkspace() {
     ...Object.fromEntries(results),
     profiles: team,
     workspace_choices: choices,
+    workspace_settings: ctx.workspace
+      ? [{ id: ctx.workspace.id, workspace_id: ctx.workspace.id, default_production_user_id: ctx.workspace.defaultProductionUserId ?? null }]
+      : [],
   } as Dataset;
   for (const table of ["books", "client_assets"]) {
     for (const bucket of ["business-assets", "client-assets"]) {

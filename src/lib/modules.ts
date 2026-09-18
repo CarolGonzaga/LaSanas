@@ -98,6 +98,8 @@ export const options: Record<string, Record<string, string>> = {
   },
   occurrence: {
     pending: "Pendente",
+    in_progress: "Em andamento",
+    waiting: "Aguardando",
     completed: "Concluído",
     cancelled: "Cancelado",
   },
@@ -161,7 +163,10 @@ export const options: Record<string, Record<string, string>> = {
   },
   task: {
     pending: "Pendente",
+    in_progress: "Em andamento",
+    waiting: "Aguardando",
     completed: "Concluída",
+    cancelled: "Cancelada",
   },
   category: {
     "Media Kit": "Media Kit",
@@ -1085,6 +1090,9 @@ export const modules: Module[] = [
         type: "textarea",
         required: false,
       },
+      { name: "assigned_to", label: "Responsável pela execução", type: "member", required: false },
+      { name: "default_priority", label: "Prioridade padrão", type: "select", required: true, source: "priority" },
+      { name: "apply_pending_assignee", label: "Aplicar responsável também às execuções pendentes", type: "checkbox", required: false, persist: false },
     ],
   },
   {
@@ -1139,6 +1147,8 @@ export const modules: Module[] = [
         type: "textarea",
         required: false,
       },
+      { name: "assigned_to", label: "Responsável pela execução", type: "member", required: false },
+      { name: "priority", label: "Prioridade", type: "select", required: true, source: "priority" },
     ],
   },
   {

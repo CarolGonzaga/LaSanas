@@ -22,6 +22,7 @@ import {
 } from "@/lib/modules";
 import { money, date, today } from "@/lib/format";
 import { StatusBadge } from "./status-badge";
+import { getTodayWorkItems } from "@/lib/work-items";
 
 type Event = {
   id: string;
@@ -542,6 +543,35 @@ export function OperationalDashboard({
     </>
   );
 }
+export function ProductionDashboard({
+  data,
+  userId,
+  onStatus,
+}: {
+  data: Dataset;
+  userId: string;
+  onStatus: (id: string, source: "tasks" | "service_occurrences", status: string) => void;
+}) {
+  const now = today();
+  const items = getTodayWorkItems(data, userId, now);
+  const columns = [["pending", "Pendente"], ["in_progress", "Em andamento"], ["waiting", "Aguardando"], ["completed", "Feito"]] as const;
+  const active = items.filter((item) => item.status !== "completed");
+  const late = active.filter((item) => item.dueDate < now).length;
+  const scheduledToday = active.filter((item) => item.dueDate === now).length;
+  const completed = items.filter((item) => item.status === "completed").length;
+  return (
+    <>
+      <div className="page-header production-header"><div><span className="eyebrow">Meu dia</span><h1>O que precisa de atenção hoje</h1><p>{late ? `${late} atrasada${late === 1 ? "" : "s"} · ` : ""}{scheduledToday} para hoje · {completed} concluída{completed === 1 ? "" : "s"}</p></div></div>
+      {!items.length ? <section className="panel empty-state"><CheckCircle2 size={28}/><h3>Você não tem nenhuma tarefa pendente para hoje.</h3></section> : <div className="production-board">
+        {columns.map(([status, label]) => {
+          const column = items.filter((item) => item.status === status);
+          return <section className="production-column" key={status}><h2>{label}<small>{column.length}</small></h2>{column.map((item) => <article className="work-card" key={item.source + item.id}><strong>{item.title}</strong><small>{item.subtitle}</small><p>{item.dueDate < now && status !== "completed" ? `ATRASADO · ${date(item.dueDate)}` : item.dueDate === now ? "Hoje" : "Concluído hoje"}{item.dueTime ? ` · ${item.dueTime.slice(0, 5)}` : ""}</p><div><select aria-label={`Mover ${item.title}`} value={item.status} onChange={(event) => onStatus(item.id, item.source, event.target.value)}>{columns.map(([value, option]) => <option key={value} value={value}>{option}</option>)}</select>{status !== "completed" && <button className="small-button" onClick={() => onStatus(item.id, item.source, "completed")}>Concluir</button>}</div></article>)}</section>;
+        })}
+      </div>}
+    </>
+  );
+}
+
 export function UnifiedAgenda({
   data,
   edit,

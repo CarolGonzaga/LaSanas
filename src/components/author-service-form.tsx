@@ -29,6 +29,9 @@ export function AuthorServiceForm({
   const [notes, setNotes] = useState("");
   const [scheduleStatus, setScheduleStatus] = useState("to_confirm");
   const [scheduledDate, setScheduledDate] = useState("");
+  const [assignedTo, setAssignedTo] = useState(
+    String(data.workspace_settings?.[0]?.default_production_user_id ?? ""),
+  );
   const [saving, setSaving] = useState(false);
   const books = (data.books ?? []).filter(
     (book) => book.author_id === author.id && !book.archived_at,
@@ -53,6 +56,7 @@ export function AuthorServiceForm({
       notes,
       scheduleStatus,
       scheduledDate: scheduleStatus === "scheduled" ? scheduledDate : null,
+      assignedTo: assignedTo || null,
     });
     setSaving(false);
     if (!result.ok) {
@@ -97,6 +101,17 @@ export function AuthorServiceForm({
               {serviceTypes.map((service) => (
                 <option key={service.id} value={service.id}>
                   {String(service.name)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Responsável pela execução
+            <select value={assignedTo} onChange={(event) => setAssignedTo(event.target.value)}>
+              <option value="">Sem responsável</option>
+              {(data.profiles ?? []).filter((profile) => profile.active).map((profile) => (
+                <option key={profile.id} value={profile.id}>
+                  {String(profile.full_name || profile.email)}
                 </option>
               ))}
             </select>

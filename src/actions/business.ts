@@ -59,6 +59,7 @@ const authorServiceInput = z.object({
   notes: z.string().trim().max(20000).nullable(),
   scheduleStatus: z.enum(["to_confirm", "scheduled"]),
   scheduledDate: z.iso.date().nullable(),
+  assignedTo: z.uuid().nullable(),
 });
 export async function createAuthorService(input: unknown): Promise<Result> {
   try {
@@ -76,6 +77,7 @@ export async function createAuthorService(input: unknown): Promise<Result> {
       p_notes: values.notes || null,
       p_schedule_status: values.scheduleStatus,
       p_scheduled_date: values.scheduledDate,
+      p_assigned_to: values.assignedTo,
     });
     checked(error);
     refresh();
@@ -120,6 +122,8 @@ export async function saveRecord(
           .parse(mediaKitInput.sent_channel)
       : null;
     const values = parseRecord(table, input);
+    const applyPendingAssignee =
+      table === "campaign_services" && mediaKitInput.apply_pending_assignee === true;
     let previousPaymentPlan: string | null = null;
     if (table === "campaigns" && id) {
       const { data, error } = await db
@@ -227,6 +231,15 @@ export async function saveRecord(
       : db.from(table).insert({ ...values, workspace_id: workspace.id });
     const { data, error } = await query.select("id").single();
     checked(error);
+    if (table === "campaign_services" && id && applyPendingAssignee) {
+      const { error: assignmentError } = await db
+        .from("service_occurrences")
+        .update({ assigned_to: values.assigned_to ?? null })
+        .eq("campaign_service_id", id)
+        .eq("workspace_id", workspace.id)
+        .not("status", "in", '(completed,cancelled)');
+      checked(assignmentError);
+    }
     if (
       table === "campaigns" &&
       id &&
@@ -274,6 +287,30 @@ export async function saveRecord(
     }
     return failure(e);
   }
+}
+export async function saveWorkspaceSettings(input: unknown): Promise<Result> {
+  try {
+    const { db, workspace } = await requireContext();
+    if (workspace.role !== "admin") throw new Error("Apenas administradoras podem alterar a equipe.");
+    const values = z.object({
+      defaultProductionUserId: z.uuid().nullable(),
+      memberId: z.uuid().optional(),
+      homeView: z.enum(["management", "production"]).optional(),
+    }).parse(input);
+    if (values.defaultProductionUserId) {
+      const { data, error } = await db.from("workspace_members").select("user_id").eq("workspace_id", workspace.id).eq("user_id", values.defaultProductionUserId).eq("active", true).maybeSingle();
+      checked(error);
+      if (!data) throw new Error("A responsável padrão deve ser uma integrante ativa.");
+    }
+    const { error: workspaceError } = await db.from("workspaces").update({ default_production_user_id: values.defaultProductionUserId }).eq("id", workspace.id);
+    checked(workspaceError);
+    if (values.memberId && values.homeView) {
+      const { error } = await db.from("workspace_members").update({ home_view: values.homeView }).eq("workspace_id", workspace.id).eq("user_id", values.memberId);
+      checked(error);
+    }
+    refresh();
+    return { ok: true, message: "Configurações da equipe atualizadas." };
+  } catch (error) { return failure(error); }
 }
 export async function removeRecord(table: string, id: string): Promise<Result> {
   try {
@@ -376,6 +413,11 @@ export async function businessAction(
         .update({ status: args.undo === "true" ? "pending" : "completed" })
         .eq("id", id)
         .eq("workspace_id", workspace.id);
+      checked(error);
+    } else if (action === "update-work-status") {
+      const table = z.enum(["tasks", "service_occurrences"]).parse(args.source);
+      const status = z.enum(["pending", "in_progress", "waiting", "completed", "cancelled"]).parse(args.status);
+      const { error } = await db.from(table).update({ status }).eq("id", id).eq("workspace_id", workspace.id);
       checked(error);
     } else if (action === "archive") {
       if (

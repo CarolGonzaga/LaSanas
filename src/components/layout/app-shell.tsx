@@ -64,12 +64,14 @@ export function AppShell({
   email,
   data = {},
   preview = false,
+  homeView = "management",
 }: {
   children: React.ReactNode;
   email: string;
   workspace?: string;
   data?: Dataset;
   preview?: boolean;
+  homeView?: string;
 }) {
   const path = usePathname(),
     router = useRouter();
@@ -147,7 +149,7 @@ export function AppShell({
                 onClick={() => setOpen(false)}
               >
                 <Icon size={17} />
-                <span>{label}</span>
+                <span>{route === "dashboard" && homeView === "production" ? "Meu dia" : label}</span>
               </Link>
             ))}
           </div>
@@ -189,7 +191,7 @@ export function AppShell({
           <div className="breadcrumb">
             <strong>
               {path.includes("dashboard") || path === "/preview"
-                ? "Visão geral"
+                ? homeView === "production" ? "Meu dia" : "Visão geral"
                 : (modules.find((m) => path.includes("/" + m.route))?.title ??
                   "Configurações")}
             </strong>

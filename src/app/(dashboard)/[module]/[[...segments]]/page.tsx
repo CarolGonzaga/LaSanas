@@ -23,6 +23,7 @@ export default async function ModulePage({
       email={result.email}
       workspace={result.workspace?.name}
       data={result.data}
+      homeView={result.workspace?.homeView}
     >
       {result.error ? (
         <div className="page">
@@ -44,6 +45,7 @@ export default async function ModulePage({
           route={route}
           id={segments?.[0]}
           {...result}
+          homeView={result.workspace?.homeView}
         />
       )}
     </AppShell>
