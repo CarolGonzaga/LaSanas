@@ -149,6 +149,11 @@ export function OperationalDashboard({
   const now = today(),
     events = eventsFor(data),
     pending = events.filter((e) => !e.done);
+  const openDates = (data.service_occurrences ?? []).filter(
+    (occurrence) =>
+      occurrence.status === "pending" &&
+      occurrence.schedule_status === "to_confirm",
+  );
   const opp = data.opportunities ?? [],
     payments = data.payments ?? [];
   const overdue = payments.filter(
@@ -191,6 +196,14 @@ export function OperationalDashboard({
       icon: CalendarDays,
       tone: "purple",
       link: "agenda",
+    },
+    {
+      label: "Datas a confirmar",
+      value: String(openDates.length),
+      note: "Serviços que ainda dependem de agendamento",
+      icon: Clock,
+      tone: "orange",
+      link: "execucoes",
     },
     {
       label: "A receber",
@@ -294,7 +307,8 @@ export function OperationalDashboard({
                 <h2>Pendências</h2>
               </div>
               <span className="pill">
-                {pending.filter((e) => e.date && e.date <= now).length}{" "}
+                {pending.filter((e) => e.date && e.date <= now).length +
+                  openDates.length}{" "}
                 pendências
               </span>
             </div>
@@ -362,6 +376,50 @@ export function OperationalDashboard({
                 },
               )}
             </div>
+            {openDates.length ? (
+              <div className="today-group open-date-group">
+                <h3>
+                  <span className="group-dot Produção" />
+                  Datas a confirmar
+                  <small>{openDates.length}</small>
+                </h3>
+                {openDates.slice(0, 8).map((occurrence) => {
+                  const service = data.campaign_services?.find(
+                    (item) => item.id === occurrence.campaign_service_id,
+                  );
+                  const camp = data.campaigns?.find(
+                    (item) => item.id === service?.campaign_id,
+                  );
+                  const type = data.service_types?.find(
+                    (item) => item.id === service?.service_type_id,
+                  );
+                  const title =
+                    String(service?.custom_name || type?.name || "Serviço") +
+                    " • " +
+                    occurrence.sequence_number +
+                    "/" +
+                    (service?.quantity ?? "?");
+                  return (
+                    <div className="event-row" key={occurrence.id}>
+                      <div>
+                        <Link href={prefix + "/execucoes/" + occurrence.id}>
+                          {title}
+                        </Link>
+                        <small>{String(camp?.name ?? "Campanha")}</small>
+                      </div>
+                      <span className="badge warning">Data em aberto</span>
+                      <button
+                        className="icon-button"
+                        aria-label={"Definir data de " + title}
+                        onClick={() => edit("service_occurrences", occurrence)}
+                      >
+                        <ArrowUpRight size={16} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
           </section>
           <section className="panel">
             <div className="section-heading">

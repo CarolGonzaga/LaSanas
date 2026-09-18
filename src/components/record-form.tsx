@@ -65,6 +65,9 @@ export function RecordForm({
   const mod = moduleByTable(table)!;
   const [file, setFile] = useState<File | null>(null);
   const [discard, setDiscard] = useState(false);
+  const [relationQueries, setRelationQueries] = useState<
+    Record<string, string>
+  >({});
   const {
     register,
     handleSubmit,
@@ -143,6 +146,19 @@ export function RecordForm({
               </div>
             )}
             {mod.fields.map((f) => {
+              if (
+                table === "media_kits" &&
+                f.persist === false &&
+                f.name !== "register_sent" &&
+                !values.register_sent
+              )
+                return null;
+              if (
+                table === "service_occurrences" &&
+                f.name === "scheduled_date" &&
+                values.schedule_status === "to_confirm"
+              )
+                return null;
               const immutable =
                 !!row?.id &&
                 ((table === "campaigns" &&
@@ -175,6 +191,31 @@ export function RecordForm({
                   ids.includes(String(p.campaign_service_id)),
                 );
               }
+              const searchableRelation =
+                f.type === "relation" &&
+                ["book_id", "publisher_id"].includes(f.name);
+              const relationQuery = relationQueries[f.name] ?? "";
+              const visibleChoices =
+                searchableRelation
+                  ? (() => {
+                    const selected = choices.find(
+                        (choice) => choice.id === values[f.name],
+                      );
+                      const matches = relationQuery.trim()
+                        ? choices.filter((choice) =>
+                            labelOf(choice, f.source!)
+                              .toLocaleLowerCase("pt-BR")
+                              .includes(
+                                relationQuery.toLocaleLowerCase("pt-BR"),
+                              ),
+                          )
+                        : choices.slice(0, 50);
+                      return selected &&
+                        !matches.some((b) => b.id === selected.id)
+                        ? [selected, ...matches]
+                        : matches;
+                    })()
+                  : choices;
               const reg = register(f.name, {
                 required: f.required ? "Campo obrigatório." : false,
                 onChange: (e) => {
@@ -225,6 +266,39 @@ export function RecordForm({
                     <textarea id={f.name} rows={4} {...reg} />
                   ) : f.type === "checkbox" ? (
                     <input id={f.name} type="checkbox" {...reg} />
+                  ) : searchableRelation ? (
+                    <div className="relation-search">
+                      <input
+                        type="search"
+                        aria-label={"Buscar " + f.label.toLocaleLowerCase("pt-BR")}
+                        placeholder={
+                          "Digite o nome " +
+                          (f.name === "book_id" ? "do livro" : "da editora") +
+                          " para filtrar"
+                        }
+                        value={relationQuery}
+                        onChange={(e) =>
+                          setRelationQueries((current) => ({
+                            ...current,
+                            [f.name]: e.target.value,
+                          }))
+                        }
+                        disabled={immutable}
+                      />
+                      <select id={f.name} {...reg} disabled={immutable}>
+                        <option value="">Selecione {f.name === "book_id" ? "um livro" : "uma editora"}</option>
+                        {visibleChoices.map((choice) => (
+                          <option key={choice.id} value={choice.id}>
+                            {labelOf(choice, f.source!)}
+                          </option>
+                        ))}
+                      </select>
+                      {!relationQuery && choices.length > 50 && (
+                        <small>
+                          Digite para localizar entre {choices.length} {f.name === "book_id" ? "livros" : "editoras"}.
+                        </small>
+                      )}
+                    </div>
                   ) : ["relation", "member", "select"].includes(f.type) ? (
                     <select id={f.name} {...reg} disabled={immutable}>
                       <option value="">Selecione</option>
@@ -236,7 +310,7 @@ export function RecordForm({
                               </option>
                             ),
                           )
-                        : choices.map((c) => (
+                        : visibleChoices.map((c) => (
                             <option key={c.id} value={c.id}>
                               {f.type === "member"
                                 ? String(c.full_name || c.email)
@@ -263,7 +337,9 @@ export function RecordForm({
                         f.type === "money"
                           ? "0"
                           : f.type === "integer"
-                            ? "1"
+                            ? f.name === "release_year"
+                              ? "1000"
+                              : "1"
                             : undefined
                       }
                       {...reg}

@@ -386,7 +386,13 @@ export function Workbench({
   function cards(table: string, rows: Row[], compact = false) {
     const m = moduleByTable(table)!;
     return rows.length ? (
-      <div className={compact ? "record-list" : "record-grid"}>
+      <div
+        className={
+          compact
+            ? "record-list"
+            : "record-grid" + (table === "books" ? " book-record-grid" : "")
+        }
+      >
         {rows.map((row) => {
           const pending =
             row.status === "pending" &&
@@ -446,6 +452,10 @@ export function Workbench({
                 ) : row.archived_at ? (
                   <span className="badge">Arquivado</span>
                 ) : null}
+                {table === "service_occurrences" &&
+                  row.schedule_status === "to_confirm" && (
+                    <span className="badge warning">Data a confirmar</span>
+                  )}
               </div>
               <Link className="record-title" href={href(table, row.id)}>
                 {labelOf(row, table)}
@@ -459,7 +469,12 @@ export function Workbench({
               {amount !== undefined && (
                 <div className="record-amount">{money(String(amount))}</div>
               )}
-              {(row.due_date ||
+              {table === "service_occurrences" &&
+              row.schedule_status === "to_confirm" ? (
+                <p className="record-meta open-date">
+                  <CalendarDays size={13} /> Data em aberto
+                </p>
+              ) : (row.due_date ||
                 row.scheduled_date ||
                 row.next_follow_up_at) && (
                 <p className="record-meta">
@@ -618,7 +633,7 @@ export function Workbench({
               </div>
               <div>
                 <dt>Lançamento</dt>
-                <dd>{display(m, r, "release_date")}</dd>
+                <dd>{display(m, r, "release_year")}</dd>
               </div>
             </dl>
           </section>

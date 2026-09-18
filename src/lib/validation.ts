@@ -5,7 +5,7 @@ export function parseRecord(table: string, input: unknown) {
   const mod = moduleByTable(table);
   if (!mod) throw new Error("Tipo de registro inválido.");
   const shape: Record<string, z.ZodType> = {};
-  for (const f of mod.fields) {
+  for (const f of mod.fields.filter((f) => f.persist !== false)) {
     let validator: z.ZodType = z
       .string()
       .trim()
@@ -21,7 +21,11 @@ export function parseRecord(table: string, input: unknown) {
     if (f.type === "relation" || f.type === "member")
       validator = z.uuid("Selecione um registro válido.");
     if (f.type === "integer")
-      validator = z.coerce.number().int().min(1).max(10000);
+      validator = z.coerce
+        .number()
+        .int()
+        .min(f.name === "release_year" ? 1000 : 1)
+        .max(f.name === "release_year" ? 9999 : 10000);
     if (f.type === "money")
       validator = z
         .string()

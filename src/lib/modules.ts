@@ -18,6 +18,7 @@ export interface Field {
   type: FieldType;
   required: boolean;
   source?: string;
+  persist?: boolean;
 }
 export interface Module {
   table: string;
@@ -94,6 +95,10 @@ export const options: Record<string, Record<string, string>> = {
     pending: "Pendente",
     completed: "Concluído",
     cancelled: "Cancelado",
+  },
+  schedule: {
+    to_confirm: "A confirmar",
+    scheduled: "Data definida",
   },
   payment: {
     pending: "Pendente",
@@ -384,9 +389,9 @@ export const modules: Module[] = [
         required: false,
       },
       {
-        name: "release_date",
+        name: "release_year",
         label: "Lançamento",
-        type: "date",
+        type: "integer",
         required: false,
       },
       {
@@ -739,6 +744,29 @@ export const modules: Module[] = [
         type: "checkbox",
         required: false,
       },
+      {
+        name: "register_sent",
+        label: "Registrar como enviada",
+        type: "checkbox",
+        required: false,
+        persist: false,
+      },
+      {
+        name: "sent_opportunity_id",
+        label: "Vincular à oportunidade",
+        type: "relation",
+        source: "opportunities",
+        required: false,
+        persist: false,
+      },
+      {
+        name: "sent_channel",
+        label: "Canal de envio",
+        type: "select",
+        source: "channel",
+        required: false,
+        persist: false,
+      },
     ],
   },
   {
@@ -1034,6 +1062,13 @@ export const modules: Module[] = [
         label: "Repetição",
         type: "integer",
         required: true,
+      },
+      {
+        name: "schedule_status",
+        label: "Agendamento",
+        type: "select",
+        required: true,
+        source: "schedule",
       },
       {
         name: "scheduled_date",

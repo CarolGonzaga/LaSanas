@@ -55,7 +55,26 @@ export async function saveRecord(
   try {
     const { db, workspace } = await requireContext();
     if (id) z.uuid().parse(id);
+    const mediaKitInput = input as Record<string, unknown>;
+    const registerMediaKitSend =
+      table === "media_kits" && mediaKitInput.register_sent === true;
+    const sentOpportunityId = registerMediaKitSend
+      ? z.uuid().parse(mediaKitInput.sent_opportunity_id)
+      : null;
+    const sentChannel = registerMediaKitSend
+      ? z
+          .enum(["email", "whatsapp", "instagram", "x_twitter", "other"])
+          .parse(mediaKitInput.sent_channel)
+      : null;
     const values = parseRecord(table, input);
+    if (
+      table === "service_occurrences" &&
+      values.schedule_status === "scheduled" &&
+      !values.scheduled_date
+    )
+      throw new Error("Informe a data ou marque o serviço como a confirmar.");
+    if (table === "service_occurrences" && values.schedule_status === "to_confirm")
+      values.scheduled_date = null;
     if (table === "campaigns" && !id && upload?.get("book_club_slot_id"))
       values.book_club_slot_id = z
         .uuid()
@@ -143,6 +162,15 @@ export async function saveRecord(
       : db.from(table).insert({ ...values, workspace_id: workspace.id });
     const { data, error } = await query.select("id").single();
     checked(error);
+    if (registerMediaKitSend && sentOpportunityId && sentChannel) {
+      const mediaKitId = z.uuid().parse(data?.id);
+      const { error: sendError } = await db.rpc("mark_media_kit", {
+        p_opportunity: sentOpportunityId,
+        p_kit: mediaKitId,
+        p_channel: sentChannel,
+      });
+      checked(sendError);
+    }
     if (previous) {
       const { error: removeError } = await db.storage
         .from(previousBucket)

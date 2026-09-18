@@ -717,6 +717,10 @@ input[type="checkbox"] {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 17px;
 }
+.book-record-grid {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 260px));
+  justify-content: start;
+}
 .record-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1371,6 +1375,15 @@ input[type="checkbox"] {
   background: var(--card);
   font-size: 13px;
 }
+.relation-search {
+  display: grid;
+  gap: 7px;
+}
+.relation-search small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 400;
+}
 .password {
   position: relative;
 }
@@ -1564,6 +1577,9 @@ input[type="checkbox"] {
   .record-list,
   .calendar-grid,
   .settings-grid {
+    grid-template-columns: 1fr;
+  }
+  .book-record-grid {
     grid-template-columns: 1fr;
   }
   .list-toolbar {

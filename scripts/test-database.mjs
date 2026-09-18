@@ -25,6 +25,7 @@ for (const name of [
   "202609170002_business_rules.sql",
   "202609170003_payment_and_legacy_assets.sql",
   "202609170004_book_club_conversion.sql",
+  "202609170005_release_year_and_open_service_dates.sql",
 ]) {
   const source = await readFile(
     new URL("../supabase/migrations/" + name, import.meta.url),
@@ -75,6 +76,14 @@ try {
   const [book] = await sql(
     "insert into books(workspace_id,author_id,title,cover_ai_status) values($1,$2,'Livro teste','confirmed_ai') returning id",
     [u1, author.id],
+  );
+  await sql("update books set release_year=2024 where id=$1", [
+    book.id,
+  ]);
+  assert.equal(
+    (await sql("select release_year from books where id=$1", [book.id]))[0]
+      .release_year,
+    2024,
   );
   await sql(
     "insert into channel_assignments(workspace_id,channel,responsible_user_id) values($1,'email',$2)",
@@ -128,6 +137,28 @@ try {
       )
     ).length,
     5,
+  );
+  assert.equal(
+    (
+      await sql(
+        "select schedule_status from service_occurrences where campaign_service_id=$1 limit 1",
+        [service.id],
+      )
+    )[0].schedule_status,
+    "to_confirm",
+  );
+  await sql(
+    "update service_occurrences set scheduled_date='2026-10-01' where campaign_service_id=$1 and sequence_number=1",
+    [service.id],
+  );
+  assert.equal(
+    (
+      await sql(
+        "select schedule_status from service_occurrences where campaign_service_id=$1 and sequence_number=1",
+        [service.id],
+      )
+    )[0].schedule_status,
+    "scheduled",
   );
   await sql(
     "update service_occurrences set status='completed' where campaign_service_id=$1 and sequence_number in (1,5)",
