@@ -341,6 +341,12 @@ export function RecordForm({
               )
                 return null;
               if (
+                table === "publishers" &&
+                row?.id &&
+                f.name.startsWith("contact_")
+              )
+                return null;
+              if (
                 table === "opportunities" &&
                 ["media_kit_version_id", "media_kit_sent_at"].includes(
                   f.name,

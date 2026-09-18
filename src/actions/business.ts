@@ -122,6 +122,34 @@ export async function saveRecord(
           .parse(mediaKitInput.sent_channel)
       : null;
     const values = parseRecord(table, input);
+    const publisherContact =
+      table === "publishers" && !id
+        ? z
+            .object({
+              contact_name: z.string().trim().max(1000).nullable(),
+              contact_role_or_department: z.string().trim().max(1000).nullable(),
+              contact_email: z.preprocess((value) => value || null, z.email("E-mail do contato inválido.").nullable()),
+              contact_whatsapp: z.string().trim().max(1000).nullable(),
+              contact_instagram: z.string().trim().max(1000).nullable(),
+              contact_x_twitter: z.string().trim().max(1000).nullable(),
+              contact_preferred_channel: z.enum(["email", "whatsapp", "instagram", "x_twitter", "other"]).nullable(),
+            })
+            .parse({
+              contact_name: mediaKitInput.contact_name || null,
+              contact_role_or_department: mediaKitInput.contact_role_or_department || null,
+              contact_email: mediaKitInput.contact_email || null,
+              contact_whatsapp: mediaKitInput.contact_whatsapp || null,
+              contact_instagram: mediaKitInput.contact_instagram || null,
+              contact_x_twitter: mediaKitInput.contact_x_twitter || null,
+              contact_preferred_channel: mediaKitInput.contact_preferred_channel || null,
+            })
+        : null;
+    if (
+      publisherContact &&
+      !publisherContact.contact_name &&
+      Object.values(publisherContact).some(Boolean)
+    )
+      throw new Error("Informe o nome do contato para salvar seus dados.");
     const applyPendingAssignee =
       table === "campaign_services" && mediaKitInput.apply_pending_assignee === true;
     let previousPaymentPlan: string | null = null;
@@ -230,6 +258,21 @@ export async function saveRecord(
       : db.from(table).insert({ ...values, workspace_id: workspace.id });
     const { data, error } = await query.select("id").single();
     checked(error);
+    if (!data?.id) throw new Error("Não foi possível salvar o registro.");
+    if (publisherContact?.contact_name) {
+      const { error: contactError } = await db.from("publisher_contacts").insert({
+        workspace_id: workspace.id,
+        publisher_id: data.id,
+        name: publisherContact.contact_name,
+        role_or_department: publisherContact.contact_role_or_department,
+        email: publisherContact.contact_email,
+        whatsapp: publisherContact.contact_whatsapp,
+        instagram: publisherContact.contact_instagram,
+        x_twitter: publisherContact.contact_x_twitter,
+        preferred_contact_channel: publisherContact.contact_preferred_channel,
+      });
+      checked(contactError);
+    }
     if (table === "campaign_services" && id && applyPendingAssignee) {
       const { error: assignmentError } = await db
         .from("service_occurrences")

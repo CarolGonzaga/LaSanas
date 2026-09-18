@@ -290,6 +290,13 @@ export const modules: Module[] = [
         type: "textarea",
         required: false,
       },
+      { name: "contact_name", label: "Nome do contato", type: "text", required: false, persist: false },
+      { name: "contact_role_or_department", label: "Cargo / departamento", type: "text", required: false, persist: false },
+      { name: "contact_email", label: "E-mail do contato", type: "email", required: false, persist: false },
+      { name: "contact_whatsapp", label: "WhatsApp / telefone", type: "text", required: false, persist: false },
+      { name: "contact_instagram", label: "Instagram", type: "text", required: false, persist: false },
+      { name: "contact_x_twitter", label: "X/Twitter", type: "text", required: false, persist: false },
+      { name: "contact_preferred_channel", label: "Canal preferido", type: "select", required: false, source: "channel", persist: false },
     ],
   },
   {

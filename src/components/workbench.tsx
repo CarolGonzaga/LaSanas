@@ -77,6 +77,9 @@ export function Workbench({
   const [query, setQuery] = useState(""),
     [filter, setFilter] = useState(""),
     [tab, setTab] = useState("overview");
+  const [exportAuthors, setExportAuthors] = useState(true);
+  const [exportPublishers, setExportPublishers] = useState(true);
+  const [exportFormat, setExportFormat] = useState("csv");
   const [year, setYear] = useState(Number(today().slice(0, 4)));
   const [confirm, setConfirm] = useState<{
     table: string;
@@ -152,6 +155,40 @@ export function Workbench({
     } catch {
       toast.error("Não foi possível copiar. Selecione o texto manualmente.");
     }
+  }
+  function exportEmails() {
+    const rows = [
+      ...(exportAuthors
+        ? (data.authors ?? [])
+            .filter((author) => author.email && !author.archived_at)
+            .map((author) => ({ tipo: "Autora", nome: String(author.name), contato: "", email: String(author.email) }))
+        : []),
+      ...(exportPublishers
+        ? (data.publisher_contacts ?? [])
+            .filter((contact) => contact.email && !contact.archived_at)
+            .map((contact) => ({
+              tipo: "Editora",
+              nome: String(data.publishers?.find((publisher) => publisher.id === contact.publisher_id)?.name ?? "Editora"),
+              contato: String(contact.name),
+              email: String(contact.email),
+            }))
+        : []),
+    ];
+    if (!rows.length) { toast.info("Não há e-mails para os filtros selecionados."); return; }
+    const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const content = exportFormat === "json"
+      ? JSON.stringify(rows, null, 2)
+      : exportFormat === "text"
+        ? rows.map((row) => `${row.tipo} | ${row.nome}${row.contato ? ` — ${row.contato}` : ""} <${row.email}>`).join("\n")
+        : ["Tipo,Nome,Contato,E-mail", ...rows.map((row) => [row.tipo, row.nome, row.contato, row.email].map(escapeCsv).join(","))].join("\n");
+    const extension = exportFormat === "text" ? "txt" : exportFormat;
+    const blob = new Blob([content], { type: exportFormat === "json" ? "application/json" : "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `emails-lasanas.${extension}`;
+    link.click();
+    URL.revokeObjectURL(url);
   }
   function convert(row: Row, table: string) {
     const book = data.books?.find((b) => b.id === row.book_id);
@@ -1119,10 +1156,10 @@ export function Workbench({
             {data.profiles?.map((p) => (
               <div className="team-row" key={p.id}>
                 <span className="avatar">
-                  {String(p.full_name || p.email).slice(0, 1)}
+                  {memberLabel(p).slice(0, 1)}
                 </span>
                 <div>
-                  <strong>{String(p.full_name || p.email)}</strong>
+                  <strong>{memberLabel(p)}</strong>
                   <small>{String(p.email)}</small>
                 </div>
                 <span className="badge">
@@ -1143,6 +1180,20 @@ export function Workbench({
             )}
           </section>
         </div>
+        <section className="panel export-panel">
+          <div>
+            <h2>Exportar e-mails</h2>
+            <p className="muted">Baixe uma lista apenas com os e-mails dos contatos selecionados.</p>
+          </div>
+          <div className="export-controls">
+            <label className="checkbox-label"><input type="checkbox" checked={exportAuthors} onChange={(event) => setExportAuthors(event.target.checked)} /> Autoras</label>
+            <label className="checkbox-label"><input type="checkbox" checked={exportPublishers} onChange={(event) => setExportPublishers(event.target.checked)} /> Editoras</label>
+            <label>Formato
+              <select value={exportFormat} onChange={(event) => setExportFormat(event.target.value)}><option value="csv">CSV</option><option value="json">JSON</option><option value="text">Texto</option></select>
+            </label>
+            <button className="button small" type="button" onClick={exportEmails}>Exportar</button>
+          </div>
+        </section>
         <section className="panel">
           <div className="section-heading">
             <div>
