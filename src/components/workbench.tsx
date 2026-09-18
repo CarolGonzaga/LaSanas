@@ -1,0 +1,1160 @@
+"use client";
+import Link from "next/link";
+import Image from "next/image";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Plus,
+  Search,
+  ArrowUpRight,
+  BookOpen,
+  Copy,
+  FileText,
+  Archive,
+  Trash2,
+  Pencil,
+  CalendarDays,
+  Layers,
+} from "lucide-react";
+import { toast } from "sonner";
+import {
+  businessAction,
+  removeRecord,
+  assetUrl,
+  saveRecord,
+} from "@/actions/business";
+import {
+  modules,
+  moduleByTable,
+  moduleByRoute,
+  options,
+  labelOf,
+  type Row,
+  type Module,
+} from "@/lib/modules";
+import type { Dataset } from "@/lib/workspace";
+import { date, money, today } from "@/lib/format";
+import { RecordForm } from "./record-form";
+import { Dialog, DialogContent } from "./ui/dialog";
+import { ConfirmDialog } from "./ui/confirm-dialog";
+import { OperationalDashboard, UnifiedAgenda } from "./operational";
+import { ThemeSelect } from "./theme-toggle";
+
+import { StatusBadge } from "./status-badge";
+import { ActionDialog } from "./action-dialog";
+export function Workbench({
+  route,
+  id,
+  data,
+  workspace,
+  email,
+  userId,
+  readOnly = false,
+}: {
+  route: string;
+  id?: string;
+  data: Dataset;
+  workspace: { id: string; name: string; role: string } | null;
+  email: string;
+  userId: string;
+  readOnly?: boolean;
+}) {
+  const router = useRouter();
+  const prefix = readOnly ? "/preview" : "";
+  const [editor, setEditor] = useState<{
+    table: string;
+    row?: Partial<Row>;
+  } | null>(null);
+  const [query, setQuery] = useState(""),
+    [filter, setFilter] = useState(""),
+    [tab, setTab] = useState("overview");
+  const [year, setYear] = useState(Number(today().slice(0, 4)));
+  const [confirm, setConfirm] = useState<{
+    table: string;
+    row: Row;
+    archive?: boolean;
+  } | null>(null);
+  const [operation, setOperation] = useState<{
+    action: string;
+    row: Row;
+  } | null>(null);
+  const [preview, setPreview] = useState<{
+    url: string;
+    title: string;
+    image: boolean;
+  } | null>(null);
+  const [busy, start] = useTransition();
+  const mod = moduleByRoute(route);
+  const record =
+    mod && id ? data[mod.table]?.find((r) => r.id === id) : undefined;
+  const edit = (table: string, row?: Partial<Row>) => setEditor({ table, row });
+  const href = (table: string, id?: string) =>
+    prefix + "/" + moduleByTable(table)!.route + (id ? "/" + id : "");
+  const relatedLabel = (table: string, id: unknown) => {
+    const r = data[table]?.find((r) => r.id === id);
+    return r ? labelOf(r, table) : "—";
+  };
+  const run = (action: string, row: Row, args: Record<string, string> = {}) =>
+    start(async () => {
+      if (readOnly) {
+        toast.info("Entre com sua conta para salvar dados reais.");
+        return;
+      }
+      const result = await businessAction(action, row.id, args);
+      if (result.ok) {
+        toast.success(result.message);
+        setOperation(null);
+        setConfirm(null);
+        router.refresh();
+      } else toast.error(result.message);
+    });
+  async function openAsset(table: string, row: Row, copy = false) {
+    const result = await assetUrl(table, row.id);
+    if (!result.ok || !result.url) {
+      toast.error(result.message);
+      return;
+    }
+    if (copy) {
+      await navigator.clipboard.writeText(result.url);
+      toast.success("Link copiado. " + result.message);
+    } else
+      setPreview({
+        url: result.url,
+        title: labelOf(row, table),
+        image: row.asset_type === "image" || table === "books",
+      });
+  }
+  async function copy(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Texto copiado.");
+    } catch {
+      toast.error("Não foi possível copiar. Selecione o texto manualmente.");
+    }
+  }
+  function convert(row: Row, table: string) {
+    const book = data.books?.find((b) => b.id === row.book_id);
+    edit("campaigns", {
+      name:
+        table === "opportunities"
+          ? String(row.name)
+          : "Clube presencial • " +
+            options.month[String(row.month)] +
+            " " +
+            row.year,
+      opportunity_id: table === "opportunities" ? row.id : null,
+      book_club_slot_id: table === "book_club_slots" ? row.id : null,
+      author_id: row.author_id ?? book?.author_id ?? null,
+      publisher_id: row.publisher_id ?? book?.publisher_id ?? null,
+      book_id: row.book_id,
+      responsible_user_id: row.responsible_user_id,
+      proposal_type: row.proposal_type ?? "media_kit",
+      campaign_type: table === "book_club_slots" ? "book_club" : "advertising",
+      total_value: row.estimated_value ?? 0,
+      status: "awaiting_payment",
+    });
+  }
+  async function announceMonth(row: Row | undefined, month: number) {
+    if (row) {
+      setOperation({ action: "announcement", row });
+      return;
+    }
+    if (readOnly) {
+      setOperation({
+        action: "announcement",
+        row: { id: "", workspace_id: "", year, month, status: "available" },
+      });
+      return;
+    }
+    const result = await saveRecord("collective_reading_slots", null, {
+      year,
+      month: String(month),
+      status: "available",
+    });
+    if (!result.ok || !result.id) {
+      toast.error(result.message);
+      return;
+    }
+    router.refresh();
+    setOperation({
+      action: "announcement",
+      row: {
+        id: result.id,
+        workspace_id: workspace!.id,
+        year,
+        month,
+        status: "available",
+      },
+    });
+  }
+  function actions(table: string, row: Row) {
+    return (
+      <div className="record-actions">
+        <button
+          className="icon-button"
+          title="Editar"
+          aria-label={"Editar " + labelOf(row, table)}
+          onClick={() => edit(table, row)}
+        >
+          <Pencil size={15} />
+        </button>
+        {["tasks", "service_occurrences"].includes(table) && (
+          <button
+            className="small-button"
+            disabled={busy}
+            onClick={() =>
+              run(
+                table === "tasks" ? "complete-task" : "complete-occurrence",
+                row,
+                { undo: String(row.status === "completed") },
+              )
+            }
+          >
+            {row.status === "completed" ? "Desfazer" : "Concluir"}
+          </button>
+        )}
+        {table === "response_templates" && (
+          <button
+            className="small-button"
+            onClick={() => setOperation({ action: "template", row })}
+          >
+            <Copy size={14} /> Copiar
+          </button>
+        )}
+        {["client_assets", "media_kits"].includes(table) && (
+          <>
+            <button
+              className="small-button"
+              onClick={() => openAsset(table, row)}
+            >
+              Abrir
+            </button>
+            <button
+              className="icon-button"
+              aria-label="Copiar link"
+              onClick={() => openAsset(table, row, true)}
+            >
+              <Copy size={14} />
+            </button>
+          </>
+        )}
+        {table === "media_kits" && !row.active && (
+          <button
+            className="small-button"
+            onClick={() => run("activate-kit", row)}
+          >
+            Ativar
+          </button>
+        )}
+        {table === "campaign_services" && (
+          <button
+            className="small-button"
+            onClick={() => setOperation({ action: "resize", row })}
+          >
+            Alterar quantidade
+          </button>
+        )}
+        {table === "opportunities" && (
+          <>
+            <button
+              className="small-button"
+              onClick={() =>
+                edit("communication_logs", {
+                  opportunity_id: row.id,
+                  author_id: row.author_id,
+                  publisher_id: row.publisher_id,
+                  publisher_contact_id: row.publisher_contact_id,
+                  channel: row.source_channel,
+                  responsible_user_id: userId,
+                })
+              }
+            >
+              Contato realizado
+            </button>
+            <button
+              className="small-button"
+              onClick={() => setOperation({ action: "kit", row })}
+            >
+              Media kit enviado
+            </button>
+            {row.status === "approved" && (
+              <button
+                className="button small"
+                onClick={() => convert(row, table)}
+              >
+                Converter em campanha
+              </button>
+            )}
+          </>
+        )}
+        {table === "campaigns" &&
+          row.status !== "active" &&
+          row.status !== "completed" && (
+            <button
+              className="small-button"
+              onClick={() => run("production", row)}
+            >
+              Iniciar produção
+            </button>
+          )}
+        {table === "campaigns" && workspace?.role === "admin" && (
+          <button
+            className="small-button"
+            onClick={() => setOperation({ action: "override", row })}
+          >
+            Exceção de pagamento
+          </button>
+        )}
+        {table === "book_club_slots" && row.book_id && !row.campaign_id && (
+          <button className="small-button" onClick={() => convert(row, table)}>
+            Criar campanha
+          </button>
+        )}
+        {table === "book_club_slots" && row.publisher_id && (
+          <button
+            className="small-button"
+            onClick={() =>
+              edit("communication_logs", {
+                publisher_id: row.publisher_id,
+                publisher_contact_id: row.publisher_contact_id,
+                responsible_user_id: userId,
+                campaign_id: row.campaign_id,
+                channel: "email",
+                summary:
+                  "Clube presencial • " +
+                  options.month[String(row.month)] +
+                  " " +
+                  row.year,
+              })
+            }
+          >
+            Registrar contato
+          </button>
+        )}
+        {[
+          "authors",
+          "publishers",
+          "books",
+          "opportunities",
+          "campaigns",
+        ].includes(table) ? (
+          <button
+            className="icon-button"
+            aria-label="Arquivar ou reativar"
+            onClick={() => setConfirm({ table, row, archive: true })}
+          >
+            <Archive size={15} />
+          </button>
+        ) : (
+          <button
+            className="icon-button delete-button"
+            aria-label="Excluir"
+            onClick={() => setConfirm({ table, row })}
+          >
+            <Trash2 size={15} />
+          </button>
+        )}
+      </div>
+    );
+  }
+  function display(mod: Module, row: Row, name: string) {
+    const f = mod.fields.find((f) => f.name === name);
+    const value = row[name];
+    if (value === null || value === undefined || value === "") return "—";
+    if (f?.type === "relation") return relatedLabel(f.source!, value);
+    if (f?.type === "member") {
+      const p = data.profiles?.find((p) => p.id === value);
+      return String(p?.full_name || p?.email || "—");
+    }
+    if (f?.type === "select")
+      return options[f.source!]?.[String(value)] ?? String(value);
+    if (f?.type === "money") return money(String(value));
+    if (f?.type === "checkbox") return value ? "Sim" : "Não";
+    if (f?.type === "date") return date(String(value));
+    if (f?.type === "datetime-local")
+      return new Intl.DateTimeFormat("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        dateStyle: "short",
+        timeStyle: "short",
+      }).format(new Date(String(value)));
+    return String(value);
+  }
+  function cards(table: string, rows: Row[], compact = false) {
+    const m = moduleByTable(table)!;
+    return rows.length ? (
+      <div className={compact ? "record-list" : "record-grid"}>
+        {rows.map((row) => {
+          const pending =
+            row.status === "pending" &&
+            String(row.due_date ?? row.scheduled_date ?? "9999") < today();
+          const ref = m.fields.filter((f) => f.type === "relation").slice(0, 2);
+          const amount =
+            row.amount ??
+            row.total_value ??
+            row.default_price ??
+            row.package_price;
+          return (
+            <article
+              className={"record-card " + (row.archived_at ? "archived" : "")}
+              key={row.id}
+            >
+              {row.preview_url && (
+                <button
+                  className="thumbnail-button"
+                  onClick={() => openAsset(table, row)}
+                  aria-label={"Abrir " + labelOf(row, table)}
+                >
+                  <Image
+                    src={String(row.preview_url)}
+                    alt={labelOf(row, table)}
+                    width={400}
+                    height={260}
+                    unoptimized
+                    className="asset-thumbnail"
+                  />
+                </button>
+              )}
+              <div className="record-top">
+                <div className="record-icon">
+                  {table === "books" ? (
+                    <BookOpen size={19} />
+                  ) : table === "response_templates" ? (
+                    <FileText size={19} />
+                  ) : (
+                    <Layers size={19} />
+                  )}
+                </div>
+                {row.status ? (
+                  <StatusBadge value={pending ? "overdue" : row.status} />
+                ) : row.active !== undefined ? (
+                  <StatusBadge value={row.active ? "active" : "cancelled"} />
+                ) : row.archived_at ? (
+                  <span className="badge">Arquivado</span>
+                ) : null}
+              </div>
+              <Link className="record-title" href={href(table, row.id)}>
+                {labelOf(row, table)}
+                <ArrowUpRight size={16} />
+              </Link>
+              <p className="record-meta">
+                {ref.map((f) => display(m, row, f.name)).join(" · ") ||
+                  String(row.email ?? row.description ?? row.category ?? "")}
+              </p>
+              {table === "books" && <StatusBadge value={row.cover_ai_status} />}
+              {amount !== undefined && (
+                <div className="record-amount">{money(String(amount))}</div>
+              )}
+              {(row.due_date ||
+                row.scheduled_date ||
+                row.next_follow_up_at) && (
+                <p className="record-meta">
+                  <CalendarDays size={13} />
+                  {date(
+                    String(
+                      row.due_date ??
+                        row.scheduled_date ??
+                        row.next_follow_up_at,
+                    ).slice(0, 10),
+                  )}
+                </p>
+              )}
+              {table === "campaign_services" && progress(row)}
+              {table === "communication_logs" && (
+                <p className="record-meta">
+                  {display(m, row, "contacted_at")} ·{" "}
+                  {display(m, row, "channel")} · {display(m, row, "direction")}
+                </p>
+              )}
+              {table === "response_templates" && (
+                <p className="template-excerpt">{String(row.content)}</p>
+              )}
+              {actions(table, row)}
+            </article>
+          );
+        })}
+      </div>
+    ) : (
+      <div className="empty-state">
+        <h3>Nenhum registro</h3>
+        <p>Ainda não há registros em {m.title.toLowerCase()}.</p>
+      </div>
+    );
+  }
+  function progress(service: Row) {
+    const occ = (data.service_occurrences ?? []).filter(
+      (o) => o.campaign_service_id === service.id && o.status !== "cancelled",
+    );
+    const done = occ.filter((o) => o.status === "completed").length;
+    return (
+      <div className="service-progress">
+        <div>
+          <span>
+            {done} de {occ.length} realizados
+          </span>
+          <span>{occ.length - done} restantes</span>
+        </div>
+        <div className="progress">
+          <i
+            style={{
+              width: (occ.length ? (done / occ.length) * 100 : 0) + "%",
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+  function detail(m: Module, r: Row) {
+    const rel: { title: string; table: string; field: string; rows: Row[] }[] =
+      [];
+    for (const other of modules) {
+      for (const f of other.fields.filter(
+        (f) => f.source === m.table && f.type === "relation",
+      )) {
+        const rows = (data[other.table] ?? []).filter(
+          (x) => x[f.name] === r.id,
+        );
+        rel.push({
+          title: other.title,
+          table: other.table,
+          field: f.name,
+          rows,
+        });
+      }
+    }
+    if (["authors", "publishers"].includes(m.table)) {
+      const field = m.table === "authors" ? "author_id" : "publisher_id";
+      const campaigns = (data.campaigns ?? []).filter((c) => c[field] === r.id),
+        ids = campaigns.map((c) => c.id);
+      rel.push({
+        title: "Financeiro",
+        table: "payments",
+        field: "",
+        rows: (data.payments ?? []).filter((p) =>
+          ids.includes(String(p.campaign_id)),
+        ),
+      });
+      rel.push({
+        title: "Serviços contratados",
+        table: "campaign_services",
+        field: "",
+        rows: (data.campaign_services ?? []).filter((p) =>
+          ids.includes(String(p.campaign_id)),
+        ),
+      });
+      for (const table of ["client_assets", "communication_logs"]) {
+        const group = rel.find((x) => x.table === table);
+        if (group) {
+          group.rows = (data[table] ?? []).filter(
+            (p) => p[field] === r.id || ids.includes(String(p.campaign_id)),
+          );
+        }
+      }
+    }
+    const relatedTab = rel.find((x) => x.table === tab);
+    const campPayments = (data.payments ?? []).filter(
+      (p) => p.campaign_id === r.id,
+    );
+    const paid = campPayments
+      .filter((p) => p.status === "paid")
+      .reduce((s, p) => s + Number(p.amount), 0);
+    return (
+      <>
+        <div className="page-header">
+          <div>
+            <Link className="eyebrow" href={href(m.table)}>
+              ← {m.title}
+            </Link>
+            <h1>{labelOf(r, m.table)}</h1>
+            <p>{m.description}</p>
+          </div>
+          <button className="button" onClick={() => edit(m.table, r)}>
+            <Pencil size={15} /> Editar
+          </button>
+        </div>
+        {m.table === "books" && r.cover_ai_status === "confirmed_ai" && (
+          <div className="notice danger-notice">
+            Este livro não pode seguir para produção enquanto utilizar uma capa
+            produzida por IA.
+          </div>
+        )}
+        {["authors", "publishers"].includes(m.table) && (
+          <div className="summary-grid">
+            <div className="summary-card">
+              <span>Trabalhos fechados</span>
+              <strong>
+                {rel.find((x) => x.table === "campaigns")?.rows.length ?? 0}
+              </strong>
+            </div>
+            <div className="summary-card">
+              <span>Total contratado</span>
+              <strong>
+                {money(
+                  (rel.find((x) => x.table === "campaigns")?.rows ?? []).reduce(
+                    (sum, c) => sum + Number(c.total_value),
+                    0,
+                  ),
+                )}
+              </strong>
+            </div>
+            <div className="summary-card">
+              <span>Último contato</span>
+              <strong>
+                {date(
+                  String(
+                    (
+                      rel.find((x) => x.table === "communication_logs")?.rows ??
+                      []
+                    )
+                      .map((c) => c.contacted_at)
+                      .filter(Boolean)
+                      .sort()
+                      .at(-1) ?? "",
+                  ).slice(0, 10) || null,
+                )}
+              </strong>
+            </div>
+          </div>
+        )}
+        {m.table === "campaigns" && (
+          <div className="summary-grid">
+            <div className="summary-card">
+              <span>Valor contratado</span>
+              <strong>{money(String(r.total_value))}</strong>
+            </div>
+            <div className="summary-card green">
+              <span>Pago</span>
+              <strong>{money(paid)}</strong>
+            </div>
+            <div className="summary-card orange">
+              <span>Saldo</span>
+              <strong>{money(Number(r.total_value) - paid)}</strong>
+            </div>
+          </div>
+        )}
+        <div className="tabs" role="tablist">
+          <button
+            role="tab"
+            aria-selected={tab === "overview"}
+            className={tab === "overview" ? "selected" : ""}
+            onClick={() => setTab("overview")}
+          >
+            Visão geral
+          </button>
+          {rel.map((x) => (
+            <button
+              role="tab"
+              aria-selected={tab === x.table}
+              className={tab === x.table ? "selected" : ""}
+              key={x.table + x.field}
+              onClick={() => setTab(x.table)}
+            >
+              {x.title} <span>{x.rows.length}</span>
+            </button>
+          ))}
+        </div>
+        {tab === "overview" ? (
+          <>
+            <section className="panel detail-panel">
+              {actions(m.table, r)}
+              <dl className="detail-grid">
+                {m.fields.map((f) => (
+                  <div
+                    key={f.name}
+                    className={f.type === "textarea" ? "full" : ""}
+                  >
+                    <dt>{f.label}</dt>
+                    <dd>{display(m, r, f.name)}</dd>
+                  </div>
+                ))}
+              </dl>
+              {m.table === "campaign_services" && progress(r)}
+              {["client_assets", "media_kits", "books"].includes(m.table) &&
+                (r.storage_path ||
+                  r.cover_storage_path ||
+                  r.external_url ||
+                  r.cover_external_url) && (
+                  <button
+                    className="button secondary"
+                    onClick={() => openAsset(m.table, r)}
+                  >
+                    Abrir arquivo / capa
+                  </button>
+                )}
+            </section>
+            {m.table === "campaigns" && (
+              <section className="panel">
+                <div className="section-heading">
+                  <h2>Produção</h2>
+                  <button
+                    className="small-button"
+                    onClick={() =>
+                      edit("campaign_services", { campaign_id: r.id })
+                    }
+                  >
+                    Adicionar serviço
+                  </button>
+                </div>
+                {(data.campaign_services ?? [])
+                  .filter((s) => s.campaign_id === r.id)
+                  .map((s) => (
+                    <div key={s.id} className="production-item">
+                      <Link href={href("campaign_services", s.id)}>
+                        {s.custom_name ||
+                          relatedLabel("service_types", s.service_type_id)}
+                      </Link>
+                      {progress(s)}
+                      <div className="monthly-progress">
+                        {Array.from(
+                          new Set(
+                            (data.service_occurrences ?? [])
+                              .filter(
+                                (o) =>
+                                  o.campaign_service_id === s.id &&
+                                  o.scheduled_date,
+                              )
+                              .map((o) => String(o.scheduled_date).slice(0, 7)),
+                          ),
+                        )
+                          .sort()
+                          .map((month) => {
+                            const items = data.service_occurrences.filter(
+                              (o) =>
+                                o.campaign_service_id === s.id &&
+                                String(o.scheduled_date).startsWith(month) &&
+                                o.status !== "cancelled",
+                            );
+                            return (
+                              <span key={month}>
+                                {month.split("-").reverse().join("/")} •{" "}
+                                {
+                                  items.filter((o) => o.status === "completed")
+                                    .length
+                                }
+                                /{items.length}
+                              </span>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  ))}
+              </section>
+            )}
+          </>
+        ) : relatedTab ? (
+          <section>
+            <div className="section-heading">
+              <h2>{relatedTab.title}</h2>
+              {relatedTab.field && (
+                <button
+                  className="button small"
+                  onClick={() =>
+                    edit(relatedTab.table, {
+                      [relatedTab.field]: r.id,
+                      ...(["authors", "publishers"].includes(m.table) &&
+                      relatedTab.table === "communication_logs"
+                        ? { responsible_user_id: userId }
+                        : {}),
+                    })
+                  }
+                >
+                  <Plus size={16} /> Adicionar
+                </button>
+              )}
+            </div>
+            {cards(relatedTab.table, relatedTab.rows, true)}
+          </section>
+        ) : null}
+      </>
+    );
+  }
+  function calendar(m: Module) {
+    const rows = (data[m.table] ?? []).filter((r) => Number(r.year) === year);
+    return (
+      <>
+        <div className="calendar-toolbar">
+          <label>
+            Ano{" "}
+            <input
+              aria-label="Ano"
+              type="number"
+              min="2000"
+              max="2100"
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
+            />
+          </label>
+          <span>
+            {
+              rows.filter((r) =>
+                ["confirmed", "completed", "reserved"].includes(
+                  String(r.status),
+                ),
+              ).length
+            }{" "}
+            meses ocupados
+          </span>
+        </div>
+        <div className="calendar-grid">
+          {Object.entries(options.month).map(([month, label]) => {
+            const row = rows.find((r) => Number(r.month) === Number(month));
+            const available = !row || row.status === "available";
+            return (
+              <article
+                className={"month-card " + (available ? "available" : "")}
+                key={month}
+              >
+                <div className="month-title">
+                  <span>{String(month).padStart(2, "0")}</span>
+                  <h2>{label}</h2>
+                </div>
+                <StatusBadge
+                  value={
+                    row?.status ??
+                    (m.table === "collective_reading_slots"
+                      ? "available"
+                      : "planning")
+                  }
+                />
+                <p>
+                  {row?.book_id
+                    ? relatedLabel("books", row.book_id)
+                    : m.table === "collective_reading_slots"
+                      ? "Nenhum livro reservado."
+                      : "Escolha o livro deste encontro."}
+                </p>
+                <button
+                  className="small-button"
+                  onClick={() =>
+                    edit(m.table, row ?? { year, month: Number(month) })
+                  }
+                >
+                  {row ? "Gerenciar mês" : "Planejar mês"}
+                </button>
+                {m.table === "collective_reading_slots" && available && (
+                  <button
+                    className="small-button"
+                    onClick={() => announceMonth(row, Number(month))}
+                  >
+                    Divulgar vaga
+                  </button>
+                )}
+                {row?.announcement_published_at && (
+                  <small>
+                    Anúncio publicado em{" "}
+                    {date(String(row.announcement_published_at).slice(0, 10))}
+                  </small>
+                )}
+                {row && m.table === "book_club_slots" && (
+                  <Link className="text-link" href={href(m.table, row.id)}>
+                    Abrir negociação <ArrowUpRight size={13} />
+                  </Link>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      </>
+    );
+  }
+  function settings() {
+    return (
+      <>
+        <div className="page-header">
+          <div>
+            <h1>Configurações</h1>
+            <p>Conta, equipe e preferências do negócio.</p>
+          </div>
+        </div>
+        <div className="settings-grid">
+          <section className="panel">
+            <h2>Conta</h2>
+            <p>{email || "Prévia local"}</p>
+            <p className="muted">
+              {workspace?.name ?? "Workspace não configurado"}
+            </p>
+            <h2>Aparência</h2>
+            <ThemeSelect />
+          </section>
+          <section className="panel">
+            <h2>Equipe</h2>
+            {data.profiles?.map((p) => (
+              <div className="team-row" key={p.id}>
+                <span className="avatar">
+                  {String(p.full_name || p.email).slice(0, 1)}
+                </span>
+                <div>
+                  <strong>{String(p.full_name || p.email)}</strong>
+                  <small>{String(p.email)}</small>
+                </div>
+                <span className="badge">
+                  {p.active ? "Ativa" : "Inativa"} ·{" "}
+                  {p.role === "admin" ? "Admin" : "Integrante"}
+                </span>
+              </div>
+            ))}
+            {!data.profiles?.length && (
+              <p className="muted">
+                As integrantes aparecerão após a configuração do workspace.
+              </p>
+            )}
+          </section>
+        </div>
+        <section className="panel">
+          <div className="section-heading">
+            <div>
+              <h2>Canais de atendimento</h2>
+              <p className="muted">
+                Defina quem recebe os novos contatos de cada canal.
+              </p>
+            </div>
+            <button
+              className="button small"
+              onClick={() => edit("channel_assignments")}
+            >
+              Configurar canal
+            </button>
+          </div>
+          {cards("channel_assignments", data.channel_assignments ?? [], true)}
+        </section>
+        <section>
+          <div className="section-heading">
+            <h2>Media kit</h2>
+            <button className="button small" onClick={() => edit("media_kits")}>
+              Adicionar versão
+            </button>
+          </div>
+          {cards("media_kits", data.media_kits ?? [])}
+        </section>
+      </>
+    );
+  }
+  let content;
+  if (route === "dashboard")
+    content = (
+      <OperationalDashboard
+        data={data}
+        edit={edit}
+        prefix={prefix}
+        onComplete={(t, r) =>
+          run(t === "tasks" ? "complete-task" : "complete-occurrence", r)
+        }
+      />
+    );
+  else if (route === "agenda")
+    content = <UnifiedAgenda data={data} edit={edit} />;
+  else if (route === "configuracoes") content = settings();
+  else if (mod && record) content = detail(mod, record);
+  else if (mod && id)
+    content = (
+      <div className="empty-state">
+        <h1>Registro não encontrado</h1>
+        <Link href={href(mod.table)}>Voltar à listagem</Link>
+      </div>
+    );
+  else if (mod) {
+    let rows = (data[mod.table] ?? []).filter(
+      (r) =>
+        !query ||
+        JSON.stringify(r).toLowerCase().includes(query.toLowerCase()) ||
+        mod.fields.some(
+          (f) =>
+            f.type === "relation" &&
+            relatedLabel(f.source!, r[f.name])
+              .toLowerCase()
+              .includes(query.toLowerCase()),
+        ),
+    );
+    rows = rows.filter((r) =>
+      filter === "archived"
+        ? !!r.archived_at
+        : !r.archived_at &&
+          (!filter || String(r.status ?? r.active) === filter),
+    );
+    const statuses = mod.fields.find((f) => f.name === "status")?.source;
+    content = (
+      <>
+        <div className="page-header">
+          <div>
+            <h1>{mod.title}</h1>
+            <p>{mod.description}</p>
+          </div>
+          <button className="button" onClick={() => edit(mod.table)}>
+            <Plus size={17} /> Adicionar
+          </button>
+        </div>
+        {mod.table === "service_types" && (
+          <Link className="inline-link" href={href("service_packages")}>
+            Ver pacotes de fidelização <ArrowUpRight size={15} />
+          </Link>
+        )}
+        {mod.table === "payments" && (
+          <div className="summary-grid">
+            {[
+              ["A receber", rows.filter((r) => r.status === "pending")],
+              [
+                "Recebido no mês",
+                rows.filter(
+                  (r) =>
+                    r.status === "paid" &&
+                    String(r.paid_at).startsWith(today().slice(0, 7)),
+                ),
+              ],
+              [
+                "Atrasado",
+                rows.filter(
+                  (r) => r.status === "pending" && String(r.due_date) < today(),
+                ),
+              ],
+            ].map(([label, items]) => (
+              <div className="summary-card" key={String(label)}>
+                <span>{String(label)}</span>
+                <strong>
+                  {money(
+                    (items as Row[]).reduce((s, r) => s + Number(r.amount), 0),
+                  )}
+                </strong>
+              </div>
+            ))}
+          </div>
+        )}
+        {mod.table.includes("_slots") ? (
+          calendar(mod)
+        ) : (
+          <>
+            <div className="list-toolbar">
+              <div className="search-input">
+                <Search size={17} />
+                <input
+                  aria-label="Buscar registros"
+                  placeholder={"Buscar em " + mod.title.toLowerCase() + "…"}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </div>
+              <select
+                aria-label="Filtrar status"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+              >
+                <option value="">Todos os atuais</option>
+                {statuses &&
+                  Object.entries(options[statuses]).map(([v, l]) => (
+                    <option key={v} value={v}>
+                      {l}
+                    </option>
+                  ))}
+                <option value="archived">Arquivados</option>
+              </select>
+              <span className="muted">{rows.length} registros</span>
+            </div>
+            {cards(mod.table, rows)}
+          </>
+        )}
+      </>
+    );
+  } else content = <div className="empty-state">Página não encontrada.</div>;
+  return (
+    <div className="page">
+      {readOnly && (
+        <div className="preview-banner">
+          Prévia local da interface • sem dados fictícios.{" "}
+          <Link href="/login">Entrar para usar o sistema</Link>
+        </div>
+      )}
+      {content}
+      {editor && (
+        <RecordForm
+          key={editor.table + (editor.row?.id ?? "new")}
+          table={editor.table}
+          row={editor.row}
+          data={data}
+          open
+          onClose={() => setEditor(null)}
+          readOnly={readOnly}
+        />
+      )}
+      <ConfirmDialog
+        open={!!confirm}
+        onOpenChange={(v) => {
+          if (!v) setConfirm(null);
+        }}
+        title={
+          confirm?.archive
+            ? "Arquivar ou reativar registro?"
+            : "Excluir registro?"
+        }
+        description={
+          confirm?.archive
+            ? "O histórico será preservado e o registro poderá ser reativado."
+            : "Esta ação remove o registro e, se houver, seu arquivo. Registros com vínculos precisam ser desvinculados antes."
+        }
+        busy={busy}
+        onConfirm={() => {
+          if (!confirm) return;
+          if (confirm.archive) {
+            run("archive", confirm.row, {
+              table: confirm.table,
+              undo: String(!!confirm.row.archived_at),
+            });
+            return;
+          }
+          start(async () => {
+            if (readOnly) {
+              toast.info("Entre para editar.");
+              return;
+            }
+            const result = await removeRecord(confirm.table, confirm.row.id);
+            if (result.ok) {
+              toast.success(result.message);
+              setConfirm(null);
+              router.push(href(confirm.table));
+              router.refresh();
+            } else toast.error(result.message);
+          });
+        }}
+      />
+      {operation && (
+        <ActionDialog
+          operation={operation}
+          data={data}
+          busy={busy}
+          close={() => setOperation(null)}
+          run={run}
+          copy={copy}
+        />
+      )}
+      <Dialog
+        open={!!preview}
+        onOpenChange={(v) => {
+          if (!v) setPreview(null);
+        }}
+      >
+        <DialogContent
+          title={preview?.title ?? "Material"}
+          description="Acesso privado e temporário ao arquivo."
+        >
+          {preview?.image && (
+            <Image
+              src={preview.url}
+              alt={preview.title}
+              width={900}
+              height={700}
+              unoptimized
+              className="asset-preview"
+            />
+          )}
+          {preview && (
+            <a
+              className="button"
+              href={preview.url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Abrir em nova aba
+            </a>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
