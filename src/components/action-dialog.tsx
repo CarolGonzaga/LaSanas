@@ -42,7 +42,7 @@ export function ActionDialog({
   const source = String(
     template ??
       (action === "kit"
-        ? "Olá, {autora}! Que bom que você entrou em contato. Vi o lançamento de {livro} e será um prazer divulgar o seu livro. Estou enviando nosso media kit para você conhecer melhor o nosso trabalho."
+        ? "Olá, {autora}! Que bom que você entrou em contato. Vi o lançamento de {livro} e será um prazer divulgar seu livro. Estou enviando o media kit para você conhecer melhor o nosso trabalho."
         : "Vaga aberta para a leitura coletiva de {mes} de {ano}! Autoras independentes, entrem em contato para conhecer a proposta."),
   );
   const opportunityAuthor = data.authors?.find((author) => author.id === row.author_id);
