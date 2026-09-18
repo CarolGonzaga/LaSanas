@@ -342,16 +342,7 @@ export function RecordForm({
                 values.media_kit_sent !== "yes"
               )
                 return null;
-              const immutable =
-                !!row?.id &&
-                ((table === "campaigns" &&
-                  [
-                    "total_value",
-                    "payment_plan",
-                    "service_package_id",
-                    "opportunity_id",
-                  ].includes(f.name)) ||
-                  (table === "campaign_services" && f.name === "quantity"));
+              const immutable = false;
               let choices =
                 f.type === "member"
                   ? (data.profiles ?? []).filter((p) => p.active)

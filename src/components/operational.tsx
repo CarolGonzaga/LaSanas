@@ -558,6 +558,11 @@ export function UnifiedAgenda({
   const end = numericRange === null ? null : new Date(now + "T12:00:00");
   if (end) end.setDate(end.getDate() + (numericRange ?? 0));
   const through = end?.toISOString().slice(0, 10) ?? null;
+  const openDates = (data.service_occurrences ?? []).filter(
+    (occurrence) =>
+      occurrence.status === "pending" &&
+      occurrence.schedule_status === "to_confirm",
+  );
   const rows = eventsFor(data).filter(
     (e) =>
       (range === "all" || !e.done) &&
@@ -634,6 +639,27 @@ export function UnifiedAgenda({
         </select>
       </div>
       <section className="panel">
+        {openDates.length > 0 && (
+          <div className="today-group open-date-group">
+            <h3>
+              Datas a confirmar <small>{openDates.length}</small>
+            </h3>
+            {openDates.map((occurrence) => (
+              <div className="event-row" key={occurrence.id}>
+                <div className="grow">
+                  <strong>Data a confirmar</strong>
+                  <small>Repetição {String(occurrence.sequence_number)}</small>
+                </div>
+                <button
+                  className="small-button"
+                  onClick={() => edit("service_occurrences", occurrence)}
+                >
+                  Definir data
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         {rows.length ? (
           rows.map((e) => (
             <div className="event-row" key={e.id}>
