@@ -253,6 +253,12 @@ small {
 .export-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; }
 .export-controls label { display: grid; gap: 6px; font-size: 12px; font-weight: 700; }
 .export-controls .checkbox-label { display: flex; align-items: center; gap: 7px; padding-bottom: 8px; }
+.conversation-panel { display: grid; gap: 14px; }
+.conversation-list,.conversation-children { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.conversation-children { margin: 12px 0 0 22px; padding-left: 14px; border-left: 2px solid var(--border); }
+.conversation-message { display: grid; gap: 8px; max-width: 780px; padding: 15px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.conversation-message.outgoing { margin-left: auto; border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.conversation-message p { margin: 0; white-space: pre-wrap; line-height: 1.55; }.conversation-message small { color: var(--muted); }.conversation-actions { display: flex; gap: 8px; justify-content: flex-end; }
 @media (max-width: 760px) { .export-panel { display: grid; align-items: start; }.export-controls { display: grid; grid-template-columns: 1fr 1fr; }.export-controls .button { width: 100%; } }
 .small-avatar {
   width: 30px;

@@ -90,6 +90,52 @@ export async function createAuthorService(input: unknown): Promise<Result> {
     return failure(error);
   }
 }
+export async function createOpportunityMessage(input: unknown): Promise<Result> {
+  try {
+    const { db, workspace, user } = await requireContext();
+    const values = z.object({
+      opportunityId: z.uuid(),
+      parentMessageId: z.uuid().nullable(),
+      text: z.string().trim().min(1, "Digite a mensagem.").max(20000),
+      direction: z.enum(["incoming", "outgoing"]),
+    }).parse(input);
+    const { data: opportunity, error: opportunityError } = await db
+      .from("opportunities")
+      .select("id,author_id,publisher_id,publisher_contact_id,source_channel")
+      .eq("id", values.opportunityId)
+      .eq("workspace_id", workspace.id)
+      .single();
+    checked(opportunityError);
+    if (!opportunity) throw new Error("Oportunidade não encontrada.");
+    if (values.parentMessageId) {
+      const { data: parent, error: parentError } = await db
+        .from("communication_logs")
+        .select("id")
+        .eq("id", values.parentMessageId)
+        .eq("workspace_id", workspace.id)
+        .eq("opportunity_id", values.opportunityId)
+        .single();
+      checked(parentError);
+      if (!parent) throw new Error("A mensagem original não pertence a esta oportunidade.");
+    }
+    const { data, error } = await db.from("communication_logs").insert({
+      workspace_id: workspace.id,
+      opportunity_id: opportunity.id,
+      author_id: opportunity.author_id,
+      publisher_id: opportunity.publisher_id,
+      publisher_contact_id: opportunity.publisher_contact_id,
+      channel: opportunity.source_channel,
+      direction: values.direction,
+      responsible_user_id: user.id,
+      contacted_at: new Date().toISOString(),
+      summary: values.text,
+      parent_message_id: values.parentMessageId,
+    }).select("id").single();
+    checked(error);
+    refresh();
+    return { ok: true, id: data?.id, message: "Mensagem registrada." };
+  } catch (error) { return failure(error); }
+}
 export async function saveRecord(
   table: string,
   id: string | null,

@@ -33,6 +33,7 @@ for (const name of [
   "202609180010_production_home_and_assignment.sql",
   "202609180011_recover_media_kit_year.sql",
   "202609180012_profile_username_and_avatar.sql",
+  "202609180013_conversation_threads.sql",
 ]) {
   const source = await readFile(
     new URL("../supabase/migrations/" + name, import.meta.url),

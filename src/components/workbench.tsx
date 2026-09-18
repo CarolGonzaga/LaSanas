@@ -46,6 +46,7 @@ import { ThemeSelect } from "./theme-toggle";
 
 import { StatusBadge } from "./status-badge";
 import { ActionDialog } from "./action-dialog";
+import { OpportunityConversation } from "./opportunity-conversation";
 export function Workbench({
   route,
   id,
@@ -955,6 +956,8 @@ export function Workbench({
               </section>
             )}
           </>
+        ) : relatedTab?.table === "communication_logs" && m.table === "opportunities" ? (
+          <OpportunityConversation opportunity={r} data={data} readOnly={readOnly} />
         ) : relatedTab ? (
           <section>
             <div className="section-heading">
