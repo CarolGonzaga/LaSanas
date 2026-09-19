@@ -254,6 +254,14 @@ small {
 .profile-summary small { margin-top: 3px; color: var(--muted); font-size: 12px; }
 .profile-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 12px; }
 .profile-form .small-button { justify-self: start; }
+.avatar-upload-field { display: grid; align-content: start; gap: 6px; font-size: 12px; font-weight: 700; }
+.avatar-file-button { position: relative; overflow: hidden; justify-self: start; }
+.avatar-file-button input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.avatar-editor { display: grid; justify-items: start; gap: 16px; }
+.avatar-crop-preview { display: grid; place-items: center; width: min(280px, 72vw); aspect-ratio: 1; overflow: hidden; border-radius: 50%; background: var(--surface-2); }
+.avatar-crop-preview img { width: 100%; height: 100%; object-fit: cover; transition: transform .12s ease; }
+.avatar-zoom { display: grid; width: min(280px, 72vw); gap: 7px; font-size: 12px; font-weight: 700; }
+.avatar-zoom input { padding: 0; }
 .profile-avatar { width: 58px; height: 58px; font-size: 20px; }
 .export-panel { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin: 20px 0; }
 .export-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; }

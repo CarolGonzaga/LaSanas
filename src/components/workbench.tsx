@@ -47,6 +47,7 @@ import { ThemeSelect } from "./theme-toggle";
 import { StatusBadge } from "./status-badge";
 import { ActionDialog } from "./action-dialog";
 import { OpportunityConversation } from "./opportunity-conversation";
+import { AvatarEditor } from "./avatar-editor";
 export function Workbench({
   route,
   id,
@@ -75,6 +76,8 @@ export function Workbench({
   const [authorServiceAuthor, setAuthorServiceAuthor] = useState<Row | null>(
     null,
   );
+  const [avatarEditorOpen, setAvatarEditorOpen] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [query, setQuery] = useState(""),
     [filter, setFilter] = useState(""),
     [tab, setTab] = useState("overview");
@@ -1112,6 +1115,7 @@ export function Workbench({
     const updateProfile = (form: HTMLFormElement) => start(async () => {
       if (readOnly) { toast.info("Entre com sua conta para salvar dados reais."); return; }
       const dataForm = new FormData(form);
+      if (avatarFile) dataForm.set("avatar", avatarFile);
       const result = await saveMyProfile(
         { username: String(dataForm.get("username") ?? "") },
         dataForm,
@@ -1135,17 +1139,18 @@ export function Workbench({
                   {!avatarUrl && memberLabel(currentProfile).slice(0, 1).toUpperCase()}
                 </div>
                 <div>
-                  <strong>{email || "Prévia local"}</strong>
-                  <small>{workspace?.name ?? "Workspace não configurado"}</small>
+                  <strong>{memberLabel(currentProfile) || "Prévia local"}</strong>
+                  <small>{email || workspace?.name || "Workspace não configurado"}</small>
                 </div>
               </div>
               <div className="profile-fields">
                 <label>Nome de usuário
                   <input name="username" defaultValue={String(currentProfile?.username ?? "")} placeholder="ana.organiza" minLength={2} maxLength={40} required />
                 </label>
-                <label>Imagem do avatar
-                  <input name="avatar" type="file" accept="image/png,image/jpeg,image/webp" />
-                </label>
+                <div className="avatar-upload-field">
+                  <span>Imagem do avatar</span>
+                  <button className="small-button" type="button" onClick={() => setAvatarEditorOpen(true)}>{avatarFile ? "Foto ajustada" : "Escolher e ajustar"}</button>
+                </div>
               </div>
               <button className="small-button" disabled={busy}>Salvar perfil</button>
             </form>
@@ -1203,6 +1208,7 @@ export function Workbench({
             <button className="button small" type="button" onClick={exportEmails}>Exportar</button>
           </div>
         </section>
+        <AvatarEditor open={avatarEditorOpen} onOpenChange={setAvatarEditorOpen} onSave={setAvatarFile} />
         <section className="panel">
           <div className="section-heading">
             <div>

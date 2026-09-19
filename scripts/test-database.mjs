@@ -34,6 +34,7 @@ for (const name of [
   "202609180011_recover_media_kit_year.sql",
   "202609180012_profile_username_and_avatar.sql",
   "202609180013_conversation_threads.sql",
+  "202609190014_prevent_duplicate_contact_emails.sql",
 ]) {
   const source = await readFile(
     new URL("../supabase/migrations/" + name, import.meta.url),
@@ -79,6 +80,12 @@ try {
   await db.exec("set role authenticated");
   const [author] = await sql(
     "insert into authors(workspace_id,name) values($1,'Autora teste') returning id",
+    [u1],
+  );
+  await sql("update authors set email='autora@example.test' where id=$1", [author.id]);
+  await expectFailure(
+    "insert into authors(workspace_id,name,email) values($1,'Autora repetida','AUTORA@example.test')",
+    /Já existe uma autora/,
     [u1],
   );
   const [book] = await sql(
@@ -331,6 +338,11 @@ try {
   ]);
   const [contact] = await sql(
     "insert into publisher_contacts(workspace_id,publisher_id,name,email) values($1,$2,'Contato','editor@example.test') returning id",
+    [u1, publisher.id],
+  );
+  await expectFailure(
+    "insert into publisher_contacts(workspace_id,publisher_id,name,email) values($1,$2,'Contato repetido','EDITOR@example.test')",
+    /Já existe um contato de editora/,
     [u1, publisher.id],
   );
   const [slot] = await sql(

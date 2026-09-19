@@ -167,7 +167,7 @@ export function AppShell({
           {!avatarUrl && avatarInitial}
         </span>
         <div>
-          <strong>{email?.split("@")[0] || "Prévia local"}</strong>
+          <strong>{currentProfile ? memberLabel(currentProfile) : email?.split("@")[0] || "Prévia local"}</strong>
           <small>{preview ? "Modo de demonstração" : email}</small>
         </div>
         {!preview && (
