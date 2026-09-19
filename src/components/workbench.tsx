@@ -1127,28 +1127,34 @@ export function Workbench({
           </div>
         </div>
         <div className="settings-grid">
-          <section className="panel">
+          <section className="panel settings-account">
             <h2>Conta</h2>
-            <p>{email || "Prévia local"}</p>
-            <p className="muted">
-              {workspace?.name ?? "Workspace não configurado"}
-            </p>
             <form className="profile-form" onSubmit={(event) => { event.preventDefault(); updateProfile(event.currentTarget); }}>
-              <div className={"avatar profile-avatar" + (avatarUrl ? " has-image" : "")} style={avatarUrl ? { backgroundImage: `url("${avatarUrl}")` } : undefined}>
-                {!avatarUrl && memberLabel(currentProfile).slice(0, 1).toUpperCase()}
+              <div className="profile-summary">
+                <div className={"avatar profile-avatar" + (avatarUrl ? " has-image" : "")} style={avatarUrl ? { backgroundImage: `url("${avatarUrl}")` } : undefined}>
+                  {!avatarUrl && memberLabel(currentProfile).slice(0, 1).toUpperCase()}
+                </div>
+                <div>
+                  <strong>{email || "Prévia local"}</strong>
+                  <small>{workspace?.name ?? "Workspace não configurado"}</small>
+                </div>
               </div>
-              <label>Nome de usuário
-                <input name="username" defaultValue={String(currentProfile?.username ?? "")} placeholder="ana.organiza" minLength={2} maxLength={40} required />
-              </label>
-              <label>Imagem do avatar
-                <input name="avatar" type="file" accept="image/png,image/jpeg,image/webp" />
-              </label>
+              <div className="profile-fields">
+                <label>Nome de usuário
+                  <input name="username" defaultValue={String(currentProfile?.username ?? "")} placeholder="ana.organiza" minLength={2} maxLength={40} required />
+                </label>
+                <label>Imagem do avatar
+                  <input name="avatar" type="file" accept="image/png,image/jpeg,image/webp" />
+                </label>
+              </div>
               <button className="small-button" disabled={busy}>Salvar perfil</button>
             </form>
-            <h2>Aparência</h2>
-            <ThemeSelect />
+            <div className="settings-appearance">
+              <h2>Aparência</h2>
+              <ThemeSelect />
+            </div>
           </section>
-          <section className="panel">
+          <section className="panel settings-team">
             <h2>Equipe</h2>
             <label className="settings-select">Responsável padrão pela produção
               <select value={defaultProductionUserId} disabled={workspace?.role !== "admin" || busy} onChange={(event) => updateSettings({ defaultProductionUserId: event.target.value || null })}>
