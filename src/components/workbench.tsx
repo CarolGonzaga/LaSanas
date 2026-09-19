@@ -971,6 +971,17 @@ export function Workbench({
           </>
         ) : relatedTab?.table === "communication_logs" && m.table === "opportunities" ? (
           <OpportunityConversation opportunity={r} data={data} readOnly={readOnly} />
+        ) : relatedTab?.table === "communication_logs" && m.table === "authors" ? (
+          <section className="author-communications">
+            <div className="section-heading"><div><h2>Comunicações</h2><p className="muted">Histórico completo por oportunidade.</p></div></div>
+            <div className="opportunity-conversation-list">
+              {(data.opportunities ?? [])
+                .filter((opportunity) => opportunity.author_id === r.id && !opportunity.archived_at)
+                .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+                .map((opportunity) => <OpportunityConversation key={opportunity.id} opportunity={opportunity} data={data} readOnly={readOnly} />)}
+            </div>
+            {!(data.opportunities ?? []).some((opportunity) => opportunity.author_id === r.id && !opportunity.archived_at) && <p className="quiet-empty">Nenhuma oportunidade cadastrada para esta autora.</p>}
+          </section>
         ) : relatedTab ? (
           <section>
             <div className="section-heading">

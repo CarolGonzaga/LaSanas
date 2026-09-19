@@ -273,6 +273,16 @@ small {
 .conversation-message { display: grid; gap: 8px; max-width: 780px; padding: 15px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
 .conversation-message.outgoing { margin-left: auto; border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
 .conversation-message p { margin: 0; white-space: pre-wrap; line-height: 1.55; }.conversation-message small { color: var(--muted); }.conversation-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.opportunity-conversation-list { display: grid; gap: 14px; }
+.opportunity-conversation-card { display: grid; gap: 14px; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
+.opportunity-conversation-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.opportunity-conversation-header strong, .opportunity-conversation-header small { display: block; }
+.opportunity-conversation-header small { margin-top: 4px; color: var(--muted); font-size: 12px; }
+.chat-history { display: grid; gap: 9px; }
+.chat-message { position: relative; display: grid; gap: 5px; width: fit-content; max-width: min(680px, 88%); padding: 10px 34px 10px 12px; border-radius: 12px; background: var(--surface-2); }
+.chat-message.outgoing { justify-self: end; background: color-mix(in srgb, var(--accent) 16%, var(--surface-2)); }
+.chat-message small { color: var(--muted); font-size: 11px; }.chat-message p { margin: 0; white-space: pre-wrap; line-height: 1.45; }
+.chat-delete { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; padding: 3px; border: 0; color: var(--muted); background: transparent; cursor: pointer; opacity: .7; }.chat-delete:hover { color: var(--danger); opacity: 1; }
 @media (max-width: 760px) { .export-panel { display: grid; align-items: start; }.export-controls { display: grid; grid-template-columns: 1fr 1fr; }.export-controls .button { width: 100%; } }
 .small-avatar {
   width: 30px;
