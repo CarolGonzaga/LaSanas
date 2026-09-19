@@ -369,6 +369,16 @@ export function RecordForm({
                 choices = choices.filter(
                   (p) => p.author_id === values.author_id,
                 );
+              if (
+                table === "communication_logs" &&
+                f.name === "opportunity_id" &&
+                values.author_id
+              )
+                choices = choices.filter(
+                  (opportunity) =>
+                    opportunity.author_id === values.author_id ||
+                    opportunity.id === values.opportunity_id,
+                );
               if (f.name === "service_occurrence_id" && values.campaign_id) {
                 const ids = (data.campaign_services ?? [])
                   .filter((s) => s.campaign_id === values.campaign_id)

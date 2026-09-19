@@ -684,6 +684,12 @@ export function Workbench({
       const field = m.table === "authors" ? "author_id" : "publisher_id";
       const campaigns = (data.campaigns ?? []).filter((c) => c[field] === r.id),
         ids = campaigns.map((c) => c.id);
+      const opportunityIds =
+        m.table === "authors"
+          ? (data.opportunities ?? [])
+              .filter((opportunity) => opportunity.author_id === r.id)
+              .map((opportunity) => opportunity.id)
+          : [];
       rel.push({
         title: "Financeiro",
         table: "payments",
@@ -704,7 +710,11 @@ export function Workbench({
         const group = rel.find((x) => x.table === table);
         if (group) {
           group.rows = (data[table] ?? []).filter(
-            (p) => p[field] === r.id || ids.includes(String(p.campaign_id)),
+            (p) =>
+              p[field] === r.id ||
+              ids.includes(String(p.campaign_id)) ||
+              (table === "communication_logs" &&
+                opportunityIds.includes(String(p.opportunity_id))),
           );
         }
       }
