@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent } from "./ui/dialog";
 
 const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
@@ -18,16 +18,13 @@ export function AvatarEditor({
   const [preview, setPreview] = useState("");
   const [zoom, setZoom] = useState(1);
 
-  useEffect(() => {
-    if (!source) return;
-    const url = URL.createObjectURL(source);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [source]);
-
   const choose = (file: File | undefined) => {
     if (!file) return;
     if (!allowedTypes.includes(file.type) || file.size > 3 * 1024 * 1024) return;
+    setPreview((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return URL.createObjectURL(file);
+    });
     setSource(file);
     setZoom(1);
   };
@@ -63,6 +60,7 @@ export function AvatarEditor({
           {preview ? (
             <>
               <div className="avatar-crop-preview">
+                {/* eslint-disable-next-line @next/next/no-img-element -- prévia local de um arquivo ainda não enviado */}
                 <img src={preview} alt="Prévia da foto de perfil" style={{ transform: `scale(${zoom})` }} />
               </div>
               <label className="avatar-zoom">Zoom
