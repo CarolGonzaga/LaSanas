@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useForm, useWatch, type DefaultValues } from "react-hook-form";
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
-import { saveRecord } from "@/actions/business";
+import { savePackageServiceItems, saveRecord } from "@/actions/business";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -232,6 +232,36 @@ function defaults(table: string, row?: Partial<Row>): Values {
   }
   return values;
 }
+function packageServiceDefaults(
+  table: string,
+  row: Partial<Row> | undefined,
+  data: Dataset,
+) {
+  if (table !== "service_packages") return {};
+  const existing = new Map(
+    (data.service_package_items ?? [])
+      .filter((item) => item.package_id === row?.id && !item.archived_at)
+      .map((item) => [String(item.service_type_id), item]),
+  );
+  return Object.fromEntries(
+    (data.service_types ?? [])
+      .filter((service) => service.active && !service.archived_at)
+      .map((service) => {
+        const item = existing.get(String(service.id));
+        return [
+          String(service.id),
+          {
+            selected: !!item,
+            quantity: String(item?.quantity_per_month ?? 1),
+            choiceGroup: String(item?.choice_group ?? ""),
+          },
+        ];
+      }),
+  ) as Record<
+    string,
+    { selected: boolean; quantity: string; choiceGroup: string }
+  >;
+}
 export function RecordForm({
   table,
   row,
@@ -251,6 +281,9 @@ export function RecordForm({
   const mod = moduleByTable(table)!;
   const [file, setFile] = useState<File | null>(null);
   const [discard, setDiscard] = useState(false);
+  const [packageServiceItems, setPackageServiceItems] = useState<
+    Record<string, { selected: boolean; quantity: string; choiceGroup: string }>
+  >(() => packageServiceDefaults(table, row, data));
   const {
     register,
     handleSubmit,
@@ -372,6 +405,22 @@ export function RecordForm({
         toast.error(result.message);
         return;
       }
+      if (table === "service_packages") {
+        const packageResult = await savePackageServiceItems({
+          packageId: result.id,
+          items: Object.entries(packageServiceItems)
+            .filter(([, item]) => item.selected)
+            .map(([serviceTypeId, item]) => ({
+              serviceTypeId,
+              quantityPerMonth: item.quantity,
+              choiceGroup: item.choiceGroup || null,
+            })),
+        });
+        if (!packageResult.ok) {
+          toast.error(packageResult.message);
+          return;
+        }
+      }
       toast.success(result.message);
       router.refresh();
       onClose();
@@ -406,6 +455,93 @@ export function RecordForm({
                 As cobranças serão criadas automaticamente. A produção exige
                 pagamento inicial e capa confirmada sem IA.
               </div>
+            )}
+            {table === "service_packages" && (
+              <section className="package-editor full">
+                <div>
+                  <strong>Serviços incluídos</strong>
+                  <p className="muted">
+                    Marque os serviços que o plano entrega por mês. Para uma
+                    alternativa, use o mesmo grupo de escolha.
+                  </p>
+                </div>
+                {(data.service_types ?? []).filter(
+                  (service) => service.active && !service.archived_at,
+                ).length ? (
+                  <div className="package-editor-list">
+                    {(data.service_types ?? [])
+                      .filter((service) => service.active && !service.archived_at)
+                      .map((service) => {
+                        const item = packageServiceItems[String(service.id)] ?? {
+                          selected: false,
+                          quantity: "1",
+                          choiceGroup: "",
+                        };
+                        return (
+                          <div className="package-editor-row" key={service.id}>
+                            <label className="checkbox-label">
+                              <input
+                                type="checkbox"
+                                checked={item.selected}
+                                onChange={(event) =>
+                                  setPackageServiceItems((current) => ({
+                                    ...current,
+                                    [String(service.id)]: {
+                                      ...item,
+                                      selected: event.target.checked,
+                                    },
+                                  }))
+                                }
+                              />
+                              <span>{String(service.name)}</span>
+                            </label>
+                            {item.selected && (
+                              <>
+                                <label>
+                                  Por mês
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max="600"
+                                    value={item.quantity}
+                                    onChange={(event) =>
+                                      setPackageServiceItems((current) => ({
+                                        ...current,
+                                        [String(service.id)]: {
+                                          ...item,
+                                          quantity: event.target.value,
+                                        },
+                                      }))
+                                    }
+                                  />
+                                </label>
+                                <label>
+                                  Grupo de escolha
+                                  <input
+                                    type="text"
+                                    placeholder="Opcional"
+                                    value={item.choiceGroup}
+                                    onChange={(event) =>
+                                      setPackageServiceItems((current) => ({
+                                        ...current,
+                                        [String(service.id)]: {
+                                          ...item,
+                                          choiceGroup: event.target.value,
+                                        },
+                                      }))
+                                    }
+                                  />
+                                </label>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+                ) : (
+                  <p className="muted">Cadastre ao menos um serviço antes de montar o plano.</p>
+                )}
+              </section>
             )}
             {mod.fields.map((f, index) => {
               if (

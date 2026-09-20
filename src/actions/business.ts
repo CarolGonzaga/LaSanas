@@ -90,6 +90,68 @@ export async function createAuthorService(input: unknown): Promise<Result> {
     return failure(error);
   }
 }
+const packageItemsInput = z.object({
+  packageId: z.uuid(),
+  items: z.array(
+    z.object({
+      serviceTypeId: z.uuid(),
+      quantityPerMonth: z.coerce.number().int().min(1).max(600),
+      choiceGroup: z.string().trim().max(100).nullable(),
+    }),
+  ),
+});
+export async function savePackageServiceItems(input: unknown): Promise<Result> {
+  try {
+    const { db, workspace } = await requireContext();
+    const values = packageItemsInput.parse(input);
+    const serviceIds = values.items.map((item) => item.serviceTypeId);
+    if (new Set(serviceIds).size !== serviceIds.length)
+      throw new Error("Cada serviço pode ser incluído apenas uma vez no plano.");
+    const { data: packageRow, error: packageError } = await db
+      .from("service_packages")
+      .select("id")
+      .eq("id", values.packageId)
+      .eq("workspace_id", workspace.id)
+      .single();
+    checked(packageError);
+    if (!packageRow) throw new Error("Plano não encontrado.");
+    if (serviceIds.length) {
+      const { data: services, error: servicesError } = await db
+        .from("service_types")
+        .select("id")
+        .eq("workspace_id", workspace.id)
+        .in("id", serviceIds);
+      checked(servicesError);
+      if ((services ?? []).length !== serviceIds.length)
+        throw new Error("Um dos serviços selecionados não pertence a este workspace.");
+    }
+    const { error: archiveError } = await db
+      .from("service_package_items")
+      .update({ archived_at: new Date().toISOString() })
+      .eq("workspace_id", workspace.id)
+      .eq("package_id", values.packageId)
+      .is("archived_at", null);
+    checked(archiveError);
+    for (const item of values.items) {
+      const { error } = await db.from("service_package_items").upsert(
+        {
+          workspace_id: workspace.id,
+          package_id: values.packageId,
+          service_type_id: item.serviceTypeId,
+          quantity_per_month: item.quantityPerMonth,
+          choice_group: item.choiceGroup || null,
+          archived_at: null,
+        },
+        { onConflict: "package_id,service_type_id" },
+      );
+      checked(error);
+    }
+    refresh();
+    return { ok: true, message: "Serviços do plano atualizados." };
+  } catch (error) {
+    return failure(error);
+  }
+}
 export async function createOpportunityMessage(input: unknown): Promise<Result> {
   try {
     const { db, workspace, user } = await requireContext();

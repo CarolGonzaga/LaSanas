@@ -1552,6 +1552,50 @@ input[type="checkbox"] {
 .package-items-checklist p {
   margin: 0;
 }
+.package-editor {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--raised);
+}
+.package-editor > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+.package-editor > div:first-child p {
+  margin: 0;
+}
+.package-editor-list {
+  display: grid;
+  gap: 8px;
+}
+.package-editor-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 90px minmax(130px, 1fr);
+  align-items: end;
+  gap: 10px;
+  padding: 9px 0;
+  border-top: 1px solid var(--border);
+}
+.package-editor-row:first-child {
+  border-top: 0;
+}
+.package-editor-row .checkbox-label {
+  flex-direction: row;
+  align-items: center;
+  min-height: 34px;
+  font-size: 12px;
+}
+@media (max-width: 640px) {
+  .package-editor-row {
+    grid-template-columns: 1fr 90px;
+  }
+  .package-editor-row > label:last-child {
+    grid-column: 1 / -1;
+  }
+}
 .record-form textarea {
   resize: vertical;
 }
