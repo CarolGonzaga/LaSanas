@@ -514,6 +514,10 @@ export function RecordForm({
                       setValue("proposal_type", "loyalty");
                     }
                   }
+                  if (f.name === "service_type_id" && e.target.value && mod.fields.some((item) => item.name === "unit_price")) {
+                    const service = data.service_types?.find((item) => item.id === e.target.value);
+                    if (service) setValue("unit_price", String(service.default_price ?? 0), { shouldDirty: true, shouldValidate: true });
+                  }
                 },
               });
               return (

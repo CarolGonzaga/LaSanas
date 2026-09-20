@@ -94,7 +94,12 @@ export function AuthorServiceForm({
             Tipo de serviço *
             <select
               value={serviceTypeId}
-              onChange={(event) => setServiceTypeId(event.target.value)}
+              onChange={(event) => {
+                const id = event.target.value;
+                setServiceTypeId(id);
+                const service = serviceTypes.find((item) => item.id === id);
+                if (service) setUnitPrice(String(service.default_price ?? 0));
+              }}
               required
             >
               <option value="">Selecione</option>
