@@ -10,6 +10,7 @@ export type FieldType =
   | "time"
   | "select"
   | "checkbox"
+  | "package-items"
   | "relation"
   | "member";
 export interface Field {
@@ -31,7 +32,7 @@ export interface Module {
 export type Row = {
   id: string;
   workspace_id: string;
-  [key: string]: string | number | boolean | null;
+  [key: string]: string | number | boolean | string[] | null;
 };
 export const options: Record<string, Record<string, string>> = {
   channel: {
@@ -290,13 +291,56 @@ export const modules: Module[] = [
         type: "textarea",
         required: false,
       },
-      { name: "contact_name", label: "Nome do contato", type: "text", required: false, persist: false },
-      { name: "contact_role_or_department", label: "Cargo / departamento", type: "text", required: false, persist: false },
-      { name: "contact_email", label: "E-mail do contato", type: "email", required: false, persist: false },
-      { name: "contact_whatsapp", label: "WhatsApp / telefone", type: "text", required: false, persist: false },
-      { name: "contact_instagram", label: "Instagram", type: "text", required: false, persist: false },
-      { name: "contact_x_twitter", label: "X/Twitter", type: "text", required: false, persist: false },
-      { name: "contact_preferred_channel", label: "Canal preferido", type: "select", required: false, source: "channel", persist: false },
+      {
+        name: "contact_name",
+        label: "Nome do contato",
+        type: "text",
+        required: false,
+        persist: false,
+      },
+      {
+        name: "contact_role_or_department",
+        label: "Cargo / departamento",
+        type: "text",
+        required: false,
+        persist: false,
+      },
+      {
+        name: "contact_email",
+        label: "E-mail do contato",
+        type: "email",
+        required: false,
+        persist: false,
+      },
+      {
+        name: "contact_whatsapp",
+        label: "WhatsApp / telefone",
+        type: "text",
+        required: false,
+        persist: false,
+      },
+      {
+        name: "contact_instagram",
+        label: "Instagram",
+        type: "text",
+        required: false,
+        persist: false,
+      },
+      {
+        name: "contact_x_twitter",
+        label: "X/Twitter",
+        type: "text",
+        required: false,
+        persist: false,
+      },
+      {
+        name: "contact_preferred_channel",
+        label: "Canal preferido",
+        type: "select",
+        required: false,
+        source: "channel",
+        persist: false,
+      },
     ],
   },
   {
@@ -605,6 +649,31 @@ export const modules: Module[] = [
         source: "proposal",
       },
       {
+        name: "service_package_id",
+        label: "Plano mensal",
+        type: "relation",
+        required: false,
+        source: "service_packages",
+      },
+      {
+        name: "contract_duration_months",
+        label: "Meses contratados",
+        type: "integer",
+        required: false,
+      },
+      {
+        name: "monthly_value",
+        label: "Valor mensal",
+        type: "money",
+        required: false,
+      },
+      {
+        name: "selected_package_item_ids",
+        label: "Serviços avulsos incluídos",
+        type: "package-items",
+        required: false,
+      },
+      {
         name: "estimated_value",
         label: "Valor estimado",
         type: "money",
@@ -864,7 +933,7 @@ export const modules: Module[] = [
       },
       {
         name: "duration_months",
-        label: "Duração em meses",
+        label: "Duração sugerida em meses",
         type: "integer",
         required: true,
       },
@@ -876,7 +945,7 @@ export const modules: Module[] = [
       },
       {
         name: "package_price",
-        label: "Preço do pacote",
+        label: "Valor mensal",
         type: "money",
         required: true,
       },
@@ -921,6 +990,12 @@ export const modules: Module[] = [
         label: "Quantidade por mês",
         type: "integer",
         required: true,
+      },
+      {
+        name: "choice_group",
+        label: "Grupo de escolha (opcional)",
+        type: "text",
+        required: false,
       },
       {
         name: "notes",
@@ -997,6 +1072,24 @@ export const modules: Module[] = [
         type: "relation",
         required: false,
         source: "service_packages",
+      },
+      {
+        name: "contract_duration_months",
+        label: "Meses contratados",
+        type: "integer",
+        required: false,
+      },
+      {
+        name: "monthly_value",
+        label: "Valor mensal",
+        type: "money",
+        required: false,
+      },
+      {
+        name: "selected_package_item_ids",
+        label: "Serviços avulsos incluídos",
+        type: "package-items",
+        required: false,
       },
       {
         name: "start_date",
@@ -1097,9 +1190,26 @@ export const modules: Module[] = [
         type: "textarea",
         required: false,
       },
-      { name: "assigned_to", label: "Responsável pela execução", type: "member", required: false },
-      { name: "default_priority", label: "Prioridade padrão", type: "select", required: true, source: "priority" },
-      { name: "apply_pending_assignee", label: "Aplicar responsável também às execuções pendentes", type: "checkbox", required: false, persist: false },
+      {
+        name: "assigned_to",
+        label: "Responsável pela execução",
+        type: "member",
+        required: false,
+      },
+      {
+        name: "default_priority",
+        label: "Prioridade padrão",
+        type: "select",
+        required: true,
+        source: "priority",
+      },
+      {
+        name: "apply_pending_assignee",
+        label: "Aplicar responsável também às execuções pendentes",
+        type: "checkbox",
+        required: false,
+        persist: false,
+      },
     ],
   },
   {
@@ -1154,8 +1264,19 @@ export const modules: Module[] = [
         type: "textarea",
         required: false,
       },
-      { name: "assigned_to", label: "Responsável pela execução", type: "member", required: false },
-      { name: "priority", label: "Prioridade", type: "select", required: true, source: "priority" },
+      {
+        name: "assigned_to",
+        label: "Responsável pela execução",
+        type: "member",
+        required: false,
+      },
+      {
+        name: "priority",
+        label: "Prioridade",
+        type: "select",
+        required: true,
+        source: "priority",
+      },
     ],
   },
   {

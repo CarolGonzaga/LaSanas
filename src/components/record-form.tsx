@@ -8,11 +8,17 @@ import { saveRecord } from "@/actions/business";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
-import { options, moduleByTable, labelOf, memberLabel, type Row } from "@/lib/modules";
+import {
+  options,
+  moduleByTable,
+  labelOf,
+  memberLabel,
+  type Row,
+} from "@/lib/modules";
 import type { Dataset } from "@/lib/workspace";
 import { today } from "@/lib/format";
 
-type Values = Record<string, string | boolean>;
+type Values = Record<string, string | boolean | string[]>;
 function RelationCombobox({
   id,
   source,
@@ -215,7 +221,14 @@ function defaults(table: string, row?: Partial<Row>): Values {
         .toISOString()
         .slice(0, 16);
     }
-    values[f.name] = typeof value === "boolean" ? value : String(value);
+    values[f.name] =
+      f.type === "package-items"
+        ? Array.isArray(value)
+          ? value.map(String)
+          : []
+        : typeof value === "boolean"
+          ? value
+          : String(value);
   }
   return values;
 }
@@ -249,9 +262,83 @@ export function RecordForm({
     defaultValues: defaults(table, row) as DefaultValues<Values>,
   });
   const values = useWatch({ control });
+  const packageItems = (data.service_package_items ?? []).filter(
+    (item) =>
+      item.package_id === values.service_package_id && !item.archived_at,
+  );
+  const selectedPackageItems = Array.isArray(values.selected_package_item_ids)
+    ? values.selected_package_item_ids
+    : [];
+  function selectPackage(id: string) {
+    const pack = data.service_packages?.find((item) => item.id === id);
+    if (!pack) return;
+    const items = (data.service_package_items ?? []).filter(
+      (item) => item.package_id === id && !item.archived_at,
+    );
+    const seenChoiceGroups = new Set<string>();
+    const initiallySelected = items
+      .filter((item) => {
+        const group = String(item.choice_group ?? "");
+        if (!group) return true;
+        if (seenChoiceGroups.has(group)) return false;
+        seenChoiceGroups.add(group);
+        return true;
+      })
+      .map((item) => item.id);
+    const duration = Number(pack.duration_months || 1);
+    const monthly = Number(pack.package_price || 0);
+    setValue("contract_duration_months", String(duration), {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    setValue("monthly_value", String(monthly), {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    setValue("selected_package_item_ids", initiallySelected, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    const totalField =
+      table === "opportunities" ? "estimated_value" : "total_value";
+    setValue(totalField, String(monthly * duration), {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    setValue("proposal_type", "loyalty", { shouldDirty: true });
+  }
+  function updatePlanTotal(
+    field: "contract_duration_months" | "monthly_value",
+    value: string,
+  ) {
+    const duration = Number(
+      field === "contract_duration_months"
+        ? value
+        : values.contract_duration_months,
+    );
+    const monthly = Number(
+      field === "monthly_value" ? value : values.monthly_value,
+    );
+    if (
+      Number.isFinite(duration) &&
+      duration > 0 &&
+      Number.isFinite(monthly) &&
+      monthly >= 0
+    ) {
+      setValue(
+        table === "opportunities" ? "estimated_value" : "total_value",
+        String(duration * monthly),
+        {
+          shouldDirty: true,
+          shouldValidate: true,
+        },
+      );
+    }
+  }
   useEffect(() => {
     if (table === "campaign_services" && !row?.id && !values.assigned_to) {
-      const defaultAssignee = data.workspace_settings?.[0]?.default_production_user_id;
+      const defaultAssignee =
+        data.workspace_settings?.[0]?.default_production_user_id;
       if (defaultAssignee) setValue("assigned_to", String(defaultAssignee));
     }
   }, [data.workspace_settings, row?.id, setValue, table, values.assigned_to]);
@@ -421,6 +508,10 @@ export function RecordForm({
                         media_kit_sent_at: "Media kit",
                         status: "Proposta e negociação",
                         proposal_type: "Proposta e negociação",
+                        service_package_id: "Proposta e negociação",
+                        contract_duration_months: "Proposta e negociação",
+                        monthly_value: "Proposta e negociação",
+                        selected_package_item_ids: "Proposta e negociação",
                         estimated_value: "Proposta e negociação",
                         proposal_items: "Proposta e negociação",
                         first_contact_at: "Acompanhamento",
@@ -451,6 +542,10 @@ export function RecordForm({
                       media_kit_sent_at: "Media kit",
                       status: "Proposta e negociação",
                       proposal_type: "Proposta e negociação",
+                      service_package_id: "Proposta e negociação",
+                      contract_duration_months: "Proposta e negociação",
+                      monthly_value: "Proposta e negociação",
+                      selected_package_item_ids: "Proposta e negociação",
                       estimated_value: "Proposta e negociação",
                       proposal_items: "Proposta e negociação",
                       first_contact_at: "Acompanhamento",
@@ -499,24 +594,28 @@ export function RecordForm({
                         );
                     }
                   }
-                  if (f.name === "service_package_id" && e.target.value) {
-                    const pack = data.service_packages?.find(
-                      (p) => p.id === e.target.value,
+                  if (f.name === "service_package_id" && e.target.value)
+                    selectPackage(e.target.value);
+                  if (
+                    (f.name === "contract_duration_months" ||
+                      f.name === "monthly_value") &&
+                    values.service_package_id
+                  )
+                    updatePlanTotal(f.name, e.target.value);
+                  if (
+                    f.name === "service_type_id" &&
+                    e.target.value &&
+                    mod.fields.some((item) => item.name === "unit_price")
+                  ) {
+                    const service = data.service_types?.find(
+                      (item) => item.id === e.target.value,
                     );
-                    if (pack) {
+                    if (service)
                       setValue(
-                        "total_value",
-                        String(
-                          Number(pack.package_price) *
-                            Number(pack.duration_months),
-                        ),
+                        "unit_price",
+                        String(service.default_price ?? 0),
+                        { shouldDirty: true, shouldValidate: true },
                       );
-                      setValue("proposal_type", "loyalty");
-                    }
-                  }
-                  if (f.name === "service_type_id" && e.target.value && mod.fields.some((item) => item.name === "unit_price")) {
-                    const service = data.service_types?.find((item) => item.id === e.target.value);
-                    if (service) setValue("unit_price", String(service.default_price ?? 0), { shouldDirty: true, shouldValidate: true });
                   }
                 },
               });
@@ -531,7 +630,70 @@ export function RecordForm({
                   >
                     {f.label}
                     {f.required ? " *" : ""}
-                    {f.type === "textarea" ? (
+                    {f.type === "package-items" ? (
+                      <div className="package-items-checklist">
+                        {!values.service_package_id ? (
+                          <p className="muted">
+                            Selecione um plano mensal para escolher os serviços
+                            incluídos.
+                          </p>
+                        ) : packageItems.length ? (
+                          packageItems.map((item) => {
+                            const itemId = String(item.id);
+                            const checked =
+                              selectedPackageItems.includes(itemId);
+                            const service = data.service_types?.find(
+                              (type) => type.id === item.service_type_id,
+                            );
+                            const group = String(item.choice_group ?? "");
+                            return (
+                              <label className="checkbox-label" key={itemId}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(event) => {
+                                    let next = event.target.checked
+                                      ? [...selectedPackageItems, itemId]
+                                      : selectedPackageItems.filter(
+                                          (selected) => selected !== itemId,
+                                        );
+                                    if (event.target.checked && group)
+                                      next = next.filter((selected) => {
+                                        if (selected === itemId) return true;
+                                        return (
+                                          String(
+                                            packageItems.find(
+                                              (candidate) =>
+                                                candidate.id === selected,
+                                            )?.choice_group ?? "",
+                                          ) !== group
+                                        );
+                                      });
+                                    setValue(
+                                      "selected_package_item_ids",
+                                      next,
+                                      {
+                                        shouldDirty: true,
+                                        shouldValidate: true,
+                                      },
+                                    );
+                                  }}
+                                />
+                                <span>
+                                  {String(item.quantity_per_month)} por mês ·{" "}
+                                  {String(service?.name ?? "Serviço")}
+                                  {group ? ` (${group})` : ""}
+                                </span>
+                              </label>
+                            );
+                          })
+                        ) : (
+                          <p className="muted">
+                            Este plano ainda não possui serviços cadastrados.
+                          </p>
+                        )}
+                      </div>
+                    ) : f.type === "textarea" ? (
                       <textarea id={f.name} rows={4} {...reg} />
                     ) : f.type === "checkbox" ? (
                       <input id={f.name} type="checkbox" {...reg} />
@@ -601,7 +763,11 @@ export function RecordForm({
                                 : undefined
                           }
                           choices={data[f.source!] ? choices : undefined}
-                          selectedId={values[f.name]}
+                          selectedId={
+                            Array.isArray(values[f.name])
+                              ? ""
+                              : (values[f.name] as string | boolean | undefined)
+                          }
                           disabled={immutable}
                           onSelect={(id) => {
                             setValue(f.name, id, {
@@ -661,17 +827,7 @@ export function RecordForm({
                               }
                             }
                             if (f.name === "service_package_id" && id) {
-                              const pack = data.service_packages?.find(
-                                (item) => item.id === id,
-                              );
-                              if (pack && !row?.total_value)
-                                setValue(
-                                  "total_value",
-                                  String(
-                                    Number(pack.package_price) *
-                                      Number(pack.duration_months),
-                                  ),
-                                );
+                              selectPackage(id);
                             }
                           }}
                         />

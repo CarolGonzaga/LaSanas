@@ -6,6 +6,10 @@ export function parseRecord(table: string, input: unknown) {
   if (!mod) throw new Error("Tipo de registro inválido.");
   const shape: Record<string, z.ZodType> = {};
   for (const f of mod.fields.filter((f) => f.persist !== false)) {
+    if (f.type === "package-items") {
+      shape[f.name] = z.array(z.uuid("Serviço do plano inválido.")).default([]);
+      continue;
+    }
     let validator: z.ZodType = z
       .string()
       .trim()

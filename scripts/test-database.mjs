@@ -35,6 +35,7 @@ for (const name of [
   "202609180012_profile_username_and_avatar.sql",
   "202609180013_conversation_threads.sql",
   "202609190014_prevent_duplicate_contact_emails.sql",
+  "202609200015_monthly_plan_contracts.sql",
 ]) {
   const source = await readFile(
     new URL("../supabase/migrations/" + name, import.meta.url),
@@ -82,7 +83,9 @@ try {
     "insert into authors(workspace_id,name) values($1,'Autora teste') returning id",
     [u1],
   );
-  await sql("update authors set email='autora@example.test' where id=$1", [author.id]);
+  await sql("update authors set email='autora@example.test' where id=$1", [
+    author.id,
+  ]);
   await expectFailure(
     "insert into authors(workspace_id,name,email) values($1,'Autora repetida','AUTORA@example.test')",
     /Já existe uma autora/,
@@ -386,17 +389,38 @@ try {
     [u1, pack.id, type.id],
   );
   const [loyalty] = await sql(
-    "insert into campaigns(workspace_id,name,author_id,service_package_id,start_date,total_value,payment_plan,status,campaign_type,proposal_type) values($1,'Fidelização',$2,$3,'2026-09-20',180,'full_upfront','awaiting_payment','advertising','loyalty') returning id",
-    [u1, author.id, pack.id],
+    "insert into campaigns(workspace_id,name,author_id,service_package_id,contract_duration_months,monthly_value,selected_package_item_ids,start_date,total_value,payment_plan,status,campaign_type,proposal_type) values($1,'Fidelização',$2,$3,2,90,array[$4]::uuid[],'2026-09-20',180,'full_upfront','awaiting_payment','advertising','loyalty') returning id",
+    [
+      u1,
+      author.id,
+      pack.id,
+      (
+        await sql("select id from service_package_items where package_id=$1", [
+          pack.id,
+        ])
+      )[0].id,
+    ],
   );
   const occurrences = await sql(
     "select o.* from service_occurrences o join campaign_services s on s.id=o.campaign_service_id where s.campaign_id=$1",
     [loyalty.id],
   );
-  assert.equal(occurrences.length, 6);
+  assert.equal(occurrences.length, 4);
+  assert.ok(
+    occurrences.every((occurrence) => occurrence.scheduled_date === null),
+  );
+  assert.ok(
+    occurrences.every(
+      (occurrence) => occurrence.schedule_status === "to_confirm",
+    ),
+  );
   assert.equal(
-    new Set(occurrences.map((o) => String(o.scheduled_date).slice(0, 7))).size,
-    3,
+    (
+      await sql("select quantity from campaign_services where campaign_id=$1", [
+        loyalty.id,
+      ])
+    )[0].quantity,
+    4,
   );
   const [manageable] = await sql(
     "insert into campaigns(workspace_id,name,author_id,book_id,start_date,total_value,payment_plan,status,campaign_type,proposal_type) values($1,'Campanha gerenciável',$2,$3,'2026-11-01',100,'full_upfront','draft','advertising','custom') returning id",
@@ -472,7 +496,9 @@ try {
       .status,
     "paused",
   );
-  console.log("PASS pacote de 3 meses e pausa ao desfazer o sinal");
+  console.log(
+    "PASS plano mensal com duração contratada e pausa ao desfazer o sinal",
+  );
   await sql("select set_config('request.jwt.claim.sub',$1,false)", [u2]);
   assert.equal(
     (await sql("select * from campaigns where id=$1", [camp.id])).length,

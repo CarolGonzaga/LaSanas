@@ -41,7 +41,11 @@ import { RecordForm } from "./record-form";
 import { AuthorServiceForm } from "./author-service-form";
 import { Dialog, DialogContent } from "./ui/dialog";
 import { ConfirmDialog } from "./ui/confirm-dialog";
-import { OperationalDashboard, ProductionDashboard, UnifiedAgenda } from "./operational";
+import {
+  OperationalDashboard,
+  ProductionDashboard,
+  UnifiedAgenda,
+} from "./operational";
 import { ThemeSelect } from "./theme-toggle";
 
 import { StatusBadge } from "./status-badge";
@@ -165,28 +169,58 @@ export function Workbench({
       ...(exportAuthors
         ? (data.authors ?? [])
             .filter((author) => author.email && !author.archived_at)
-            .map((author) => ({ tipo: "Autora", nome: String(author.name), contato: "", email: String(author.email) }))
+            .map((author) => ({
+              tipo: "Autora",
+              nome: String(author.name),
+              contato: "",
+              email: String(author.email),
+            }))
         : []),
       ...(exportPublishers
         ? (data.publisher_contacts ?? [])
             .filter((contact) => contact.email && !contact.archived_at)
             .map((contact) => ({
               tipo: "Editora",
-              nome: String(data.publishers?.find((publisher) => publisher.id === contact.publisher_id)?.name ?? "Editora"),
+              nome: String(
+                data.publishers?.find(
+                  (publisher) => publisher.id === contact.publisher_id,
+                )?.name ?? "Editora",
+              ),
               contato: String(contact.name),
               email: String(contact.email),
             }))
         : []),
     ];
-    if (!rows.length) { toast.info("Não há e-mails para os filtros selecionados."); return; }
+    if (!rows.length) {
+      toast.info("Não há e-mails para os filtros selecionados.");
+      return;
+    }
     const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
-    const content = exportFormat === "json"
-      ? JSON.stringify(rows, null, 2)
-      : exportFormat === "text"
-        ? rows.map((row) => `${row.tipo} | ${row.nome}${row.contato ? ` — ${row.contato}` : ""} <${row.email}>`).join("\n")
-        : ["Tipo,Nome,Contato,E-mail", ...rows.map((row) => [row.tipo, row.nome, row.contato, row.email].map(escapeCsv).join(","))].join("\n");
+    const content =
+      exportFormat === "json"
+        ? JSON.stringify(rows, null, 2)
+        : exportFormat === "text"
+          ? rows
+              .map(
+                (row) =>
+                  `${row.tipo} | ${row.nome}${row.contato ? ` — ${row.contato}` : ""} <${row.email}>`,
+              )
+              .join("\n")
+          : [
+              "Tipo,Nome,Contato,E-mail",
+              ...rows.map((row) =>
+                [row.tipo, row.nome, row.contato, row.email]
+                  .map(escapeCsv)
+                  .join(","),
+              ),
+            ].join("\n");
     const extension = exportFormat === "text" ? "txt" : exportFormat;
-    const blob = new Blob([content], { type: exportFormat === "json" ? "application/json" : "text/plain;charset=utf-8" });
+    const blob = new Blob([content], {
+      type:
+        exportFormat === "json"
+          ? "application/json"
+          : "text/plain;charset=utf-8",
+    });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -211,6 +245,10 @@ export function Workbench({
       book_id: row.book_id,
       responsible_user_id: row.responsible_user_id,
       proposal_type: row.proposal_type ?? "media_kit",
+      service_package_id: row.service_package_id ?? null,
+      contract_duration_months: row.contract_duration_months ?? null,
+      monthly_value: row.monthly_value ?? null,
+      selected_package_item_ids: row.selected_package_item_ids ?? [],
       campaign_type: table === "book_club_slots" ? "book_club" : "advertising",
       total_value: row.estimated_value ?? 0,
       status: "awaiting_payment",
@@ -969,18 +1007,48 @@ export function Workbench({
               </section>
             )}
           </>
-        ) : relatedTab?.table === "communication_logs" && m.table === "opportunities" ? (
-          <OpportunityConversation opportunity={r} data={data} readOnly={readOnly} />
-        ) : relatedTab?.table === "communication_logs" && m.table === "authors" ? (
+        ) : relatedTab?.table === "communication_logs" &&
+          m.table === "opportunities" ? (
+          <OpportunityConversation
+            opportunity={r}
+            data={data}
+            readOnly={readOnly}
+          />
+        ) : relatedTab?.table === "communication_logs" &&
+          m.table === "authors" ? (
           <section className="author-communications">
-            <div className="section-heading"><div><h2>Comunicações</h2><p className="muted">Histórico completo por oportunidade.</p></div></div>
+            <div className="section-heading">
+              <div>
+                <h2>Comunicações</h2>
+                <p className="muted">Histórico completo por oportunidade.</p>
+              </div>
+            </div>
             <div className="opportunity-conversation-list">
               {(data.opportunities ?? [])
-                .filter((opportunity) => opportunity.author_id === r.id && !opportunity.archived_at)
-                .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
-                .map((opportunity) => <OpportunityConversation key={opportunity.id} opportunity={opportunity} data={data} readOnly={readOnly} />)}
+                .filter(
+                  (opportunity) =>
+                    opportunity.author_id === r.id && !opportunity.archived_at,
+                )
+                .sort((a, b) =>
+                  String(b.created_at).localeCompare(String(a.created_at)),
+                )
+                .map((opportunity) => (
+                  <OpportunityConversation
+                    key={opportunity.id}
+                    opportunity={opportunity}
+                    data={data}
+                    readOnly={readOnly}
+                  />
+                ))}
             </div>
-            {!(data.opportunities ?? []).some((opportunity) => opportunity.author_id === r.id && !opportunity.archived_at) && <p className="quiet-empty">Nenhuma oportunidade cadastrada para esta autora.</p>}
+            {!(data.opportunities ?? []).some(
+              (opportunity) =>
+                opportunity.author_id === r.id && !opportunity.archived_at,
+            ) && (
+              <p className="quiet-empty">
+                Nenhuma oportunidade cadastrada para esta autora.
+              </p>
+            )}
           </section>
         ) : relatedTab ? (
           <section>
@@ -1122,27 +1190,48 @@ export function Workbench({
     );
   }
   function settings() {
-    const defaultProductionUserId = String(data.workspace_settings?.[0]?.default_production_user_id ?? "");
-    const currentProfile = data.profiles?.find((profile) => profile.id === userId);
-    const avatarUrl = String(currentProfile?.avatar_preview_url ?? currentProfile?.avatar_url ?? "");
-    const updateSettings = (input: { defaultProductionUserId: string | null; memberId?: string; homeView?: string }) => start(async () => {
-      if (readOnly) {
-        toast.info("Entre com sua conta para salvar dados reais.");
-        return;
-      }
-      const result = await saveWorkspaceSettings(input);
-      if (result.ok) { toast.success(result.message); router.refresh(); } else toast.error(result.message);
-    });
-    const updateProfile = (form: HTMLFormElement) => start(async () => {
-      if (readOnly) { toast.info("Entre com sua conta para salvar dados reais."); return; }
-      const dataForm = new FormData(form);
-      if (avatarFile) dataForm.set("avatar", avatarFile);
-      const result = await saveMyProfile(
-        { username: String(dataForm.get("username") ?? "") },
-        dataForm,
-      );
-      if (result.ok) { toast.success(result.message); router.refresh(); } else toast.error(result.message);
-    });
+    const defaultProductionUserId = String(
+      data.workspace_settings?.[0]?.default_production_user_id ?? "",
+    );
+    const currentProfile = data.profiles?.find(
+      (profile) => profile.id === userId,
+    );
+    const avatarUrl = String(
+      currentProfile?.avatar_preview_url ?? currentProfile?.avatar_url ?? "",
+    );
+    const updateSettings = (input: {
+      defaultProductionUserId: string | null;
+      memberId?: string;
+      homeView?: string;
+    }) =>
+      start(async () => {
+        if (readOnly) {
+          toast.info("Entre com sua conta para salvar dados reais.");
+          return;
+        }
+        const result = await saveWorkspaceSettings(input);
+        if (result.ok) {
+          toast.success(result.message);
+          router.refresh();
+        } else toast.error(result.message);
+      });
+    const updateProfile = (form: HTMLFormElement) =>
+      start(async () => {
+        if (readOnly) {
+          toast.info("Entre com sua conta para salvar dados reais.");
+          return;
+        }
+        const dataForm = new FormData(form);
+        if (avatarFile) dataForm.set("avatar", avatarFile);
+        const result = await saveMyProfile(
+          { username: String(dataForm.get("username") ?? "") },
+          dataForm,
+        );
+        if (result.ok) {
+          toast.success(result.message);
+          router.refresh();
+        } else toast.error(result.message);
+      });
     return (
       <>
         <div className="page-header">
@@ -1154,26 +1243,62 @@ export function Workbench({
         <div className="settings-grid">
           <section className="panel settings-account">
             <h2>Conta</h2>
-            <form className="profile-form" onSubmit={(event) => { event.preventDefault(); updateProfile(event.currentTarget); }}>
+            <form
+              className="profile-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                updateProfile(event.currentTarget);
+              }}
+            >
               <div className="profile-summary">
-                <div className={"avatar profile-avatar" + (avatarUrl ? " has-image" : "")} style={avatarUrl ? { backgroundImage: `url("${avatarUrl}")` } : undefined}>
-                  {!avatarUrl && memberLabel(currentProfile).slice(0, 1).toUpperCase()}
+                <div
+                  className={
+                    "avatar profile-avatar" + (avatarUrl ? " has-image" : "")
+                  }
+                  style={
+                    avatarUrl
+                      ? { backgroundImage: `url("${avatarUrl}")` }
+                      : undefined
+                  }
+                >
+                  {!avatarUrl &&
+                    memberLabel(currentProfile).slice(0, 1).toUpperCase()}
                 </div>
                 <div>
-                  <strong>{memberLabel(currentProfile) || "Prévia local"}</strong>
-                  <small>{email || workspace?.name || "Workspace não configurado"}</small>
+                  <strong>
+                    {memberLabel(currentProfile) || "Prévia local"}
+                  </strong>
+                  <small>
+                    {email || workspace?.name || "Workspace não configurado"}
+                  </small>
                 </div>
               </div>
               <div className="profile-fields">
-                <label>Nome de usuário
-                  <input name="username" defaultValue={String(currentProfile?.username ?? "")} placeholder="ana.organiza" minLength={2} maxLength={40} required />
+                <label>
+                  Nome de usuário
+                  <input
+                    name="username"
+                    defaultValue={String(currentProfile?.username ?? "")}
+                    placeholder="ana.organiza"
+                    minLength={2}
+                    maxLength={40}
+                    required
+                  />
                 </label>
                 <div className="avatar-upload-field">
                   <span>Imagem do avatar</span>
-                  <button className="small-button" type="button" onClick={() => setAvatarEditorOpen(true)}>{avatarFile ? "Foto ajustada" : "Escolher e ajustar"}</button>
+                  <button
+                    className="small-button"
+                    type="button"
+                    onClick={() => setAvatarEditorOpen(true)}
+                  >
+                    {avatarFile ? "Foto ajustada" : "Escolher e ajustar"}
+                  </button>
                 </div>
               </div>
-              <button className="small-button" disabled={busy}>Salvar perfil</button>
+              <button className="small-button" disabled={busy}>
+                Salvar perfil
+              </button>
             </form>
             <div className="settings-appearance">
               <h2>Aparência</h2>
@@ -1182,17 +1307,30 @@ export function Workbench({
           </section>
           <section className="panel settings-team">
             <h2>Equipe</h2>
-            <label className="settings-select">Responsável padrão pela produção
-              <select value={defaultProductionUserId} disabled={workspace?.role !== "admin" || busy} onChange={(event) => updateSettings({ defaultProductionUserId: event.target.value || null })}>
+            <label className="settings-select">
+              Responsável padrão pela produção
+              <select
+                value={defaultProductionUserId}
+                disabled={workspace?.role !== "admin" || busy}
+                onChange={(event) =>
+                  updateSettings({
+                    defaultProductionUserId: event.target.value || null,
+                  })
+                }
+              >
                 <option value="">Nenhuma responsável definida</option>
-                {(data.profiles ?? []).filter((profile) => profile.active).map((profile) => <option key={profile.id} value={profile.id}>{memberLabel(profile)}</option>)}
+                {(data.profiles ?? [])
+                  .filter((profile) => profile.active)
+                  .map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {memberLabel(profile)}
+                    </option>
+                  ))}
               </select>
             </label>
             {data.profiles?.map((p) => (
               <div className="team-row" key={p.id}>
-                <span className="avatar">
-                  {memberLabel(p).slice(0, 1)}
-                </span>
+                <span className="avatar">{memberLabel(p).slice(0, 1)}</span>
                 <div>
                   <strong>{memberLabel(p)}</strong>
                   <small>{String(p.email)}</small>
@@ -1201,9 +1339,22 @@ export function Workbench({
                   {p.active ? "Ativa" : "Inativa"} ·{" "}
                   {p.role === "admin" ? "Admin" : "Integrante"}
                 </span>
-                <label className="settings-select compact">Página inicial
-                  <select value={String(p.home_view ?? "management")} disabled={workspace?.role !== "admin" || busy} onChange={(event) => updateSettings({ defaultProductionUserId: defaultProductionUserId || null, memberId: p.id, homeView: event.target.value })}>
-                    <option value="management">Gestão</option><option value="production">Meu dia / Produção</option>
+                <label className="settings-select compact">
+                  Página inicial
+                  <select
+                    value={String(p.home_view ?? "management")}
+                    disabled={workspace?.role !== "admin" || busy}
+                    onChange={(event) =>
+                      updateSettings({
+                        defaultProductionUserId:
+                          defaultProductionUserId || null,
+                        memberId: p.id,
+                        homeView: event.target.value,
+                      })
+                    }
+                  >
+                    <option value="management">Gestão</option>
+                    <option value="production">Meu dia / Produção</option>
                   </select>
                 </label>
               </div>
@@ -1218,18 +1369,52 @@ export function Workbench({
         <section className="panel export-panel">
           <div>
             <h2>Exportar e-mails</h2>
-            <p className="muted">Baixe uma lista apenas com os e-mails dos contatos selecionados.</p>
+            <p className="muted">
+              Baixe uma lista apenas com os e-mails dos contatos selecionados.
+            </p>
           </div>
           <div className="export-controls">
-            <label className="checkbox-label"><input type="checkbox" checked={exportAuthors} onChange={(event) => setExportAuthors(event.target.checked)} /> Autoras</label>
-            <label className="checkbox-label"><input type="checkbox" checked={exportPublishers} onChange={(event) => setExportPublishers(event.target.checked)} /> Editoras</label>
-            <label>Formato
-              <select value={exportFormat} onChange={(event) => setExportFormat(event.target.value)}><option value="csv">CSV</option><option value="json">JSON</option><option value="text">Texto</option></select>
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={exportAuthors}
+                onChange={(event) => setExportAuthors(event.target.checked)}
+              />{" "}
+              Autoras
             </label>
-            <button className="button small" type="button" onClick={exportEmails}>Exportar</button>
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={exportPublishers}
+                onChange={(event) => setExportPublishers(event.target.checked)}
+              />{" "}
+              Editoras
+            </label>
+            <label>
+              Formato
+              <select
+                value={exportFormat}
+                onChange={(event) => setExportFormat(event.target.value)}
+              >
+                <option value="csv">CSV</option>
+                <option value="json">JSON</option>
+                <option value="text">Texto</option>
+              </select>
+            </label>
+            <button
+              className="button small"
+              type="button"
+              onClick={exportEmails}
+            >
+              Exportar
+            </button>
           </div>
         </section>
-        <AvatarEditor open={avatarEditorOpen} onOpenChange={setAvatarEditorOpen} onSave={setAvatarFile} />
+        <AvatarEditor
+          open={avatarEditorOpen}
+          onOpenChange={setAvatarEditorOpen}
+          onSave={setAvatarFile}
+        />
         <section className="panel">
           <div className="section-heading">
             <div>
@@ -1261,26 +1446,29 @@ export function Workbench({
   }
   let content;
   if (route === "dashboard")
-    content = (
+    content =
       homeView === "production" ? (
         <ProductionDashboard
           data={data}
           userId={userId}
           onStatus={(itemId, source, status) =>
-            run("update-work-status", { id: itemId, workspace_id: workspace?.id ?? "" }, { source, status })
+            run(
+              "update-work-status",
+              { id: itemId, workspace_id: workspace?.id ?? "" },
+              { source, status },
+            )
           }
         />
       ) : (
-      <OperationalDashboard
-        data={data}
-        edit={edit}
-        prefix={prefix}
-        onComplete={(t, r) =>
-          run(t === "tasks" ? "complete-task" : "complete-occurrence", r)
-        }
-      />
-      )
-    );
+        <OperationalDashboard
+          data={data}
+          edit={edit}
+          prefix={prefix}
+          onComplete={(t, r) =>
+            run(t === "tasks" ? "complete-task" : "complete-occurrence", r)
+          }
+        />
+      );
   else if (route === "agenda")
     content = <UnifiedAgenda data={data} edit={edit} />;
   else if (route === "configuracoes") content = settings();
