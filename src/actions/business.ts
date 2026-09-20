@@ -98,6 +98,7 @@ export async function createOpportunityMessage(input: unknown): Promise<Result> 
       parentMessageId: z.uuid().nullable(),
       text: z.string().trim().min(1, "Digite a mensagem.").max(20000),
       direction: z.enum(["incoming", "outgoing"]),
+      contactedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a data da mensagem."),
     }).parse(input);
     const { data: opportunity, error: opportunityError } = await db
       .from("opportunities")
@@ -127,7 +128,7 @@ export async function createOpportunityMessage(input: unknown): Promise<Result> 
       channel: opportunity.source_channel,
       direction: values.direction,
       responsible_user_id: user.id,
-      contacted_at: new Date().toISOString(),
+       contacted_at: new Date(`${values.contactedAt}T12:00:00`).toISOString(),
       summary: values.text,
       parent_message_id: values.parentMessageId,
     }).select("id").single();

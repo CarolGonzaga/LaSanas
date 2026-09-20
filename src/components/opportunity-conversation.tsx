@@ -17,17 +17,18 @@ export function OpportunityConversation({ opportunity, data, readOnly = false }:
   const [composerOpen, setComposerOpen] = useState(false);
   const [text, setText] = useState("");
   const [direction, setDirection] = useState<"incoming" | "outgoing">("incoming");
+  const [contactedAt, setContactedAt] = useState(() => new Date().toISOString().slice(0, 10));
   const [removing, setRemoving] = useState<Row | null>(null);
   const [busy, start] = useTransition();
   const messages = (data.communication_logs ?? [])
     .filter((message) => message.opportunity_id === opportunity.id && !message.archived_at)
     .sort((a, b) => String(a.contacted_at).localeCompare(String(b.contacted_at)));
-  function openComposer() { setText(""); setDirection("incoming"); setComposerOpen(true); }
+  function openComposer() { setText(""); setDirection("incoming"); setContactedAt(new Date().toISOString().slice(0, 10)); setComposerOpen(true); }
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (readOnly) return toast.info("Entre com sua conta para registrar mensagens.");
     start(async () => {
-      const result = await createOpportunityMessage({ opportunityId: opportunity.id, parentMessageId: null, text, direction });
+      const result = await createOpportunityMessage({ opportunityId: opportunity.id, parentMessageId: null, text, direction, contactedAt });
       if (result.ok) { toast.success(result.message); setComposerOpen(false); router.refresh(); } else toast.error(result.message);
     });
   }
@@ -48,6 +49,9 @@ export function OpportunityConversation({ opportunity, data, readOnly = false }:
         <form className="record-form" onSubmit={submit}>
           <label>Quem enviou?
             <select value={direction} onChange={(event) => setDirection(event.target.value as "incoming" | "outgoing")}><option value="incoming">Cliente</option><option value="outgoing">Equipe</option></select>
+          </label>
+          <label>Data de envio
+            <input type="date" value={contactedAt} onChange={(event) => setContactedAt(event.target.value)} required />
           </label>
           <label className="full">Mensagem<textarea rows={7} value={text} onChange={(event) => setText(event.target.value)} required autoFocus /></label>
           <div className="dialog-actions full"><Button type="button" variant="secondary" onClick={() => setComposerOpen(false)}>Cancelar</Button><Button disabled={busy}>{busy ? "Salvando…" : "Salvar"}</Button></div>
