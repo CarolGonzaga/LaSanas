@@ -2,9 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { MessageCircle, Trash2 } from "lucide-react";
+import { MessageCircle, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { createOpportunityMessage, removeRecord } from "@/actions/business";
+import { createOpportunityMessage, removeRecord, updateOpportunityMessage } from "@/actions/business";
 import { date } from "@/lib/format";
 import { labelOf, type Row } from "@/lib/modules";
 import type { Dataset } from "@/lib/workspace";
@@ -18,6 +18,11 @@ const localDateTime = () => {
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   return now.toISOString().slice(0, 16);
 };
+const toLocalInput = (value: string) => {
+  const date = new Date(value);
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 16);
+};
 
 export function OpportunityConversation({ opportunity, data, readOnly = false }: { opportunity: Row; data: Dataset; readOnly?: boolean }) {
   const router = useRouter();
@@ -25,18 +30,22 @@ export function OpportunityConversation({ opportunity, data, readOnly = false }:
   const [text, setText] = useState("");
   const [direction, setDirection] = useState<"incoming" | "outgoing">("incoming");
   const [contactedAt, setContactedAt] = useState(localDateTime);
+  const [editing, setEditing] = useState<Row | null>(null);
   const [removing, setRemoving] = useState<Row | null>(null);
   const [busy, start] = useTransition();
   const messages = (data.communication_logs ?? [])
     .filter((message) => message.opportunity_id === opportunity.id && !message.archived_at)
     .sort((a, b) => String(a.contacted_at).localeCompare(String(b.contacted_at)) || String(a.created_at).localeCompare(String(b.created_at)) || String(a.id).localeCompare(String(b.id)));
   function openComposer() { setText(""); setDirection("incoming"); setContactedAt(localDateTime()); setComposerOpen(true); }
+  function openEditor(message: Row) { setText(String(message.summary)); setDirection(message.direction === "outgoing" ? "outgoing" : "incoming"); setContactedAt(toLocalInput(String(message.contacted_at))); setEditing(message); setComposerOpen(true); }
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (readOnly) return toast.info("Entre com sua conta para registrar mensagens.");
     start(async () => {
-      const result = await createOpportunityMessage({ opportunityId: opportunity.id, parentMessageId: null, text, direction, contactedAt });
-      if (result.ok) { toast.success(result.message); setComposerOpen(false); router.refresh(); } else toast.error(result.message);
+      const result = editing
+        ? await updateOpportunityMessage({ messageId: editing.id, opportunityId: opportunity.id, text, direction, contactedAt })
+        : await createOpportunityMessage({ opportunityId: opportunity.id, parentMessageId: null, text, direction, contactedAt });
+      if (result.ok) { toast.success(result.message); setComposerOpen(false); setEditing(null); router.refresh(); } else toast.error(result.message);
     });
   }
   return <article className="opportunity-conversation-card">
@@ -48,11 +57,11 @@ export function OpportunityConversation({ opportunity, data, readOnly = false }:
       {messages.length ? messages.map((message) => <div key={message.id} className={"chat-message " + (message.direction === "outgoing" ? "outgoing" : "incoming")}>
         <small>{message.direction === "outgoing" ? "Equipe" : "Cliente"} · {dateTime(String(message.contacted_at))}</small>
         <p>{String(message.summary)}</p>
-        <button className="chat-delete" aria-label="Excluir mensagem" onClick={() => setRemoving(message)}><Trash2 size={13} /></button>
+        <div className="chat-actions"><button className="chat-action" aria-label="Editar mensagem" onClick={() => openEditor(message)}><Pencil size={13} /></button><button className="chat-action" aria-label="Excluir mensagem" onClick={() => setRemoving(message)}><Trash2 size={13} /></button></div>
       </div>) : <p className="quiet-empty">Nenhuma mensagem registrada.</p>}
     </div>
-    <Dialog open={composerOpen} onOpenChange={setComposerOpen}>
-      <DialogContent title="Nova mensagem" description="Registre uma mensagem do cliente ou uma mensagem enviada pela equipe.">
+    <Dialog open={composerOpen} onOpenChange={(open) => { setComposerOpen(open); if (!open) setEditing(null); }}>
+      <DialogContent title={editing ? "Editar mensagem" : "Nova mensagem"} description="Registre uma mensagem do cliente ou uma mensagem enviada pela equipe.">
         <form className="record-form" onSubmit={submit}>
           <label>Quem enviou?
             <select value={direction} onChange={(event) => setDirection(event.target.value as "incoming" | "outgoing")}><option value="incoming">Cliente</option><option value="outgoing">Equipe</option></select>

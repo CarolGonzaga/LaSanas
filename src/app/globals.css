@@ -282,7 +282,7 @@ small {
 .chat-message { position: relative; display: grid; gap: 5px; width: fit-content; max-width: min(680px, 88%); padding: 10px 34px 10px 12px; border: 1px solid color-mix(in srgb, var(--border) 72%, white); border-radius: 12px 12px 12px 3px; background: color-mix(in srgb, var(--surface-2) 74%, #4d3b62); box-shadow: 0 2px 7px rgb(0 0 0 / .12); }
 .chat-message.outgoing { justify-self: end; border-color: color-mix(in srgb, var(--accent) 52%, var(--border)); border-radius: 12px 12px 3px 12px; background: color-mix(in srgb, var(--accent) 34%, #30213d); }
 .chat-message small { color: var(--muted); font-size: 11px; }.chat-message p { margin: 0; white-space: pre-wrap; line-height: 1.45; }
-.chat-delete { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; padding: 3px; border: 0; color: var(--muted); background: transparent; cursor: pointer; opacity: .7; }.chat-delete:hover { color: var(--danger); opacity: 1; }
+.chat-actions { position: absolute; top: 8px; right: 8px; display: flex; gap: 3px; }.chat-action { display: grid; place-items: center; padding: 3px; border: 0; color: var(--muted); background: transparent; cursor: pointer; opacity: .7; }.chat-action:hover { color: var(--text); opacity: 1; }.chat-action:last-child:hover { color: var(--danger); }
 @media (max-width: 760px) { .export-panel { display: grid; align-items: start; }.export-controls { display: grid; grid-template-columns: 1fr 1fr; }.export-controls .button { width: 100%; } }
 .small-avatar {
   width: 30px;

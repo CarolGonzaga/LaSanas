@@ -137,6 +137,26 @@ export async function createOpportunityMessage(input: unknown): Promise<Result> 
     return { ok: true, id: data?.id, message: "Mensagem registrada." };
   } catch (error) { return failure(error); }
 }
+export async function updateOpportunityMessage(input: unknown): Promise<Result> {
+  try {
+    const { db, workspace } = await requireContext();
+    const values = z.object({
+      messageId: z.uuid(),
+      opportunityId: z.uuid(),
+      text: z.string().trim().min(1, "Digite a mensagem.").max(20000),
+      direction: z.enum(["incoming", "outgoing"]),
+      contactedAt: z.string().datetime({ local: true, message: "Informe a data e o horário da mensagem." }),
+    }).parse(input);
+    const { error } = await db.from("communication_logs").update({
+      summary: values.text,
+      direction: values.direction,
+      contacted_at: new Date(values.contactedAt).toISOString(),
+    }).eq("id", values.messageId).eq("opportunity_id", values.opportunityId).eq("workspace_id", workspace.id);
+    checked(error);
+    refresh();
+    return { ok: true, message: "Mensagem atualizada." };
+  } catch (error) { return failure(error); }
+}
 export async function saveRecord(
   table: string,
   id: string | null,
