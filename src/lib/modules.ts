@@ -680,45 +680,15 @@ export const modules: Module[] = [
         required: false,
       },
       {
-        name: "proposal_items",
-        label: "Itens da proposta / quantidades / datas",
-        type: "textarea",
-        required: false,
-      },
-      {
         name: "first_contact_at",
         label: "Primeiro contato",
         type: "datetime-local",
         required: false,
       },
       {
-        name: "last_contact_at",
-        label: "Último contato",
-        type: "datetime-local",
-        required: false,
-      },
-      {
-        name: "next_follow_up_at",
-        label: "Próximo retorno",
-        type: "datetime-local",
-        required: false,
-      },
-      {
-        name: "book_data_collected",
-        label: "Dados do livro coletados",
-        type: "checkbox",
-        required: false,
-      },
-      {
         name: "ai_cover_policy_informed",
         label: "Política sobre IA informada",
         type: "checkbox",
-        required: false,
-      },
-      {
-        name: "ai_cover_policy_accepted_at",
-        label: "Política aceita em",
-        type: "datetime-local",
         required: false,
       },
       {
@@ -729,6 +699,13 @@ export const modules: Module[] = [
       },
     ],
   },
+  { table: "opportunity_service_items", route: "itens-oportunidade", title: "Serviços da oportunidade", description: "Serviços avulsos negociados.", label: "id", fields: [
+    { name: "opportunity_id", label: "Oportunidade", type: "relation", required: true, source: "opportunities" },
+    { name: "service_type_id", label: "Serviço", type: "relation", required: true, source: "service_types" },
+    { name: "quantity", label: "Quantidade", type: "integer", required: true },
+    { name: "unit_price", label: "Valor unitário", type: "money", required: true },
+    { name: "notes", label: "Observações", type: "textarea", required: false },
+  ] },
   {
     table: "communication_logs",
     route: "comunicacoes",

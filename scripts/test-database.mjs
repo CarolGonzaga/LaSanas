@@ -37,6 +37,7 @@ for (const name of [
   "202609190014_prevent_duplicate_contact_emails.sql",
   "202609200015_monthly_plan_contracts.sql",
   "202609200016_production_status_and_updates.sql",
+  "202609200017_opportunity_services.sql",
 ]) {
   const source = await readFile(
     new URL("../supabase/migrations/" + name, import.meta.url),
