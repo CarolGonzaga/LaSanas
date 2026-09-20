@@ -2384,6 +2384,8 @@ input[type="checkbox"] {
 .due-chip.due-atrasado { background: #3c2428; color: #ffafb6; }
 .due-chip.due-para-hoje { background: #3c3020; color: #f2ca78; }
 .due-chip.due-próximo { background: #242f46; color: #9ec6ff; }
+.due-chip.due-agendado { background: #242f46; color: #9ec6ff; }
+.production-tabs { margin: -8px 0 12px; }
 .work-drag-handle {
   margin-left: auto;
   color: var(--muted);
