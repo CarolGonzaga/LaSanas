@@ -89,7 +89,7 @@ export async function loadWorkspace() {
   );
   const { data: members, error } = await ctx.db
     .from("workspace_members")
-    .select("user_id,role,active,profiles(id,full_name,email,username,avatar_url)")
+    .select("user_id,role,active,home_view,profiles(id,full_name,email,username,avatar_url)")
     .eq("workspace_id", ctx.workspace.id);
   if (error) throw new Error(error.message);
   const team = (members ?? []).map((m) => ({
@@ -97,6 +97,7 @@ export async function loadWorkspace() {
     workspace_id: ctx.workspace!.id,
     role: m.role,
     active: m.active,
+    home_view: m.home_view,
   }));
   const choices = ctx.memberships.map((m) => ({
     id: String(m.workspace_id),
@@ -113,6 +114,15 @@ export async function loadWorkspace() {
       ? [{ id: ctx.workspace.id, workspace_id: ctx.workspace.id, default_production_user_id: ctx.workspace.defaultProductionUserId ?? null }]
       : [],
   } as Dataset;
+  const { data: productionUpdates } = await ctx.db
+    .from("production_updates")
+    .select("*")
+    .eq("workspace_id", ctx.workspace.id)
+    .eq("recipient_user_id", ctx.user.id)
+    .is("read_at", null)
+    .order("created_at", { ascending: false })
+    .limit(12);
+  dataset.production_updates = (productionUpdates ?? []) as Row[];
   const avatars = (dataset.profiles ?? []).filter(
     (profile) =>
       profile.avatar_url &&

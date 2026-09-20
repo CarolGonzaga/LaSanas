@@ -484,6 +484,20 @@ export async function saveWorkspaceSettings(input: unknown): Promise<Result> {
     }
     const { error: workspaceError } = await db.from("workspaces").update({ default_production_user_id: values.defaultProductionUserId }).eq("id", workspace.id);
     checked(workspaceError);
+    if (values.defaultProductionUserId) {
+      const { error: serviceError } = await db
+        .from("campaign_services")
+        .update({ assigned_to: values.defaultProductionUserId })
+        .eq("workspace_id", workspace.id)
+        .is("assigned_to", null);
+      checked(serviceError);
+      const { error: occurrenceError } = await db
+        .from("service_occurrences")
+        .update({ assigned_to: values.defaultProductionUserId })
+        .eq("workspace_id", workspace.id)
+        .is("assigned_to", null);
+      checked(occurrenceError);
+    }
     if (values.memberId && values.homeView) {
       const { error } = await db.from("workspace_members").update({ home_view: values.homeView }).eq("workspace_id", workspace.id).eq("user_id", values.memberId);
       checked(error);
@@ -647,7 +661,7 @@ export async function businessAction(
       checked(error);
     } else if (action === "update-work-status") {
       const table = z.enum(["tasks", "service_occurrences"]).parse(args.source);
-      const status = z.enum(["pending", "in_progress", "waiting", "completed", "cancelled"]).parse(args.status);
+      const status = z.enum(["pending", "in_progress", "in_revision", "completed", "cancelled"]).parse(args.status);
       const { error } = await db.from(table).update({ status }).eq("id", id).eq("workspace_id", workspace.id);
       checked(error);
     } else if (action === "archive") {

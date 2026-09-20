@@ -100,7 +100,7 @@ export const options: Record<string, Record<string, string>> = {
   occurrence: {
     pending: "Pendente",
     in_progress: "Em andamento",
-    waiting: "Aguardando",
+    in_revision: "Em alteração",
     completed: "Concluído",
     cancelled: "Cancelado",
   },
@@ -165,7 +165,7 @@ export const options: Record<string, Record<string, string>> = {
   task: {
     pending: "Pendente",
     in_progress: "Em andamento",
-    waiting: "Aguardando",
+    in_revision: "Em alteração",
     completed: "Concluída",
     cancelled: "Cancelada",
   },

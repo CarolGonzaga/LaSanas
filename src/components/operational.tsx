@@ -23,7 +23,8 @@ import {
 } from "@/lib/modules";
 import { money, date, today } from "@/lib/format";
 import { StatusBadge } from "./status-badge";
-import { getTodayWorkItems } from "@/lib/work-items";
+import { Dialog, DialogContent } from "./ui/dialog";
+import { getTodayWorkItems, type WorkItem } from "@/lib/work-items";
 
 type Event = {
   id: string;
@@ -291,6 +292,17 @@ export function OperationalDashboard({
           <Plus size={17} /> Nova oportunidade
         </button>
       </div>
+      {(data.production_updates ?? []).length > 0 && (
+        <section className="notice production-updates">
+          <strong>Atualizações da produção</strong>
+          {(data.production_updates ?? []).map((update) => {
+            const occurrence = data.service_occurrences?.find((item) => item.id === update.occurrence_id);
+            const service = data.campaign_services?.find((item) => item.id === occurrence?.campaign_service_id);
+            const type = data.service_types?.find((item) => item.id === service?.service_type_id);
+            return <p key={update.id}>{String(type?.name ?? "Serviço")}: {String(update.previous_status)} → <b>{String(update.current_status)}</b></p>;
+          })}
+        </section>
+      )}
       <div className="dashboard-stats">
         {cards.map((c) => (
           <Link
@@ -554,21 +566,16 @@ export function ProductionDashboard({
   onStatus: (id: string, source: "tasks" | "service_occurrences", status: string) => void;
 }) {
   const now = today();
-  const items = getTodayWorkItems(data, userId, now);
-  const columns = [["pending", "Pendente"], ["in_progress", "Em andamento"], ["waiting", "Aguardando"], ["completed", "Feito"]] as const;
-  const active = items.filter((item) => item.status !== "completed");
-  const late = active.filter((item) => item.dueDate < now).length;
-  const scheduledToday = active.filter((item) => item.dueDate === now).length;
-  const completed = items.filter((item) => item.status === "completed").length;
+  const [selected, setSelected] = useState<WorkItem | null>(null);
+  const items = getTodayWorkItems(data, userId, now).filter((item) => item.source === "service_occurrences" && item.dueDate && item.row.schedule_status === "scheduled");
+  const active = items.filter((item) => !["completed", "cancelled"].includes(item.status));
+  const sections = [["Atrasados", active.filter((item) => item.dueDate < now)], ["Para hoje", active.filter((item) => item.dueDate === now)], ["Próximos", active.filter((item) => item.dueDate > now)]] as const;
+  const details = selected && (() => { const service = data.campaign_services?.find((item) => item.id === selected.row.campaign_service_id); const campaign = data.campaigns?.find((item) => item.id === service?.campaign_id); const book = data.books?.find((item) => item.id === (service?.book_id ?? campaign?.book_id)); const author = data.authors?.find((item) => item.id === (campaign?.author_id ?? book?.author_id)); const publisher = data.publishers?.find((item) => item.id === campaign?.publisher_id); const payments = (data.payments ?? []).filter((item) => item.campaign_id === campaign?.id && item.status === "paid"); return { service, campaign, book, author, publisher, paid: payments.reduce((sum, item) => sum + Number(item.amount), 0) }; })();
   return (
     <>
-      <div className="page-header production-header"><div><span className="eyebrow">Meu dia</span><h1>O que precisa de atenção hoje</h1><p>{late ? `${late} atrasada${late === 1 ? "" : "s"} · ` : ""}{scheduledToday} para hoje · {completed} concluída{completed === 1 ? "" : "s"}</p></div></div>
-      {!items.length ? <section className="panel empty-state"><CheckCircle2 size={28}/><h3>Você não tem nenhuma tarefa pendente para hoje.</h3></section> : <div className="production-board">
-        {columns.map(([status, label]) => {
-          const column = items.filter((item) => item.status === status);
-          return <section className="production-column" key={status}><h2>{label}<small>{column.length}</small></h2>{column.map((item) => <article className="work-card" key={item.source + item.id}><strong>{item.title}</strong><small>{item.subtitle}</small><p>{item.dueDate < now && status !== "completed" ? `ATRASADO · ${date(item.dueDate)}` : item.dueDate === now ? "Hoje" : "Concluído hoje"}{item.dueTime ? ` · ${item.dueTime.slice(0, 5)}` : ""}</p><div><select aria-label={`Mover ${item.title}`} value={item.status} onChange={(event) => onStatus(item.id, item.source, event.target.value)}>{columns.map(([value, option]) => <option key={value} value={value}>{option}</option>)}</select>{status !== "completed" && <button className="small-button" onClick={() => onStatus(item.id, item.source, "completed")}>Concluir</button>}</div></article>)}</section>;
-        })}
-      </div>}
+      <div className="page-header production-header"><div><span className="eyebrow">Meu dia</span><h1>Serviços confirmados</h1><p>{sections[0][1].length} atrasados · {sections[1][1].length} para hoje · {sections[2][1].length} próximos</p></div></div>
+      {sections.map(([label, rows]) => <section className="production-section" key={label}><h2>{label}<small>{rows.length}</small></h2>{rows.length ? <div className="production-board">{rows.map((item) => <article className="work-card" key={item.id} onClick={() => setSelected(item)}><button className="work-complete" aria-label="Concluir" onClick={(event) => { event.stopPropagation(); onStatus(item.id, item.source, "completed"); }}>✓</button><strong>{item.title}</strong><small>{item.subtitle}</small><p>{date(item.dueDate)}{item.dueTime ? ` · ${item.dueTime.slice(0, 5)}` : ""}</p><select aria-label={`Status de ${item.title}`} value={item.status} onClick={(event) => event.stopPropagation()} onChange={(event) => onStatus(item.id, item.source, event.target.value)}><option value="pending">Pendente</option><option value="in_progress">Em andamento</option><option value="in_revision">Em alteração</option><option value="completed">Concluído</option><option value="cancelled">Cancelado</option></select></article>)}</div> : <p className="quiet-empty">Nenhum serviço nesta seção.</p>}</section>)}
+      <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}><DialogContent title={selected?.title ?? "Serviço"} description="Resumo da execução confirmada.">{details && <dl className="detail-grid"><div><dt>Data</dt><dd>{selected && date(selected.dueDate)}</dd></div><div><dt>Status</dt><dd>{selected?.status}</dd></div><div><dt>Autora / editora</dt><dd>{String(details.author?.name ?? details.publisher?.name ?? "—")}</dd></div><div><dt>Livro</dt><dd>{String(details.book?.title ?? "—")}</dd></div><div><dt>Valor contratado</dt><dd>{money(String(details.campaign?.total_value ?? 0))}</dd></div><div><dt>Valor pago</dt><dd>{money(details.paid)}</dd></div><div className="full"><dt>O que precisa ser feito</dt><dd>{String(details.service?.notes ?? details.service?.description ?? "Sem instruções adicionais.")}</dd></div></dl>}<div className="dialog-actions"><button className="button secondary" onClick={() => setSelected(null)}>Fechar</button></div></DialogContent></Dialog>
     </>
   );
 }
