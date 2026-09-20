@@ -879,12 +879,8 @@ export function RecordForm({
                                   const author = data.authors?.find(
                                     (item) => item.id === opportunity.author_id,
                                   );
-                                  const book = data.books?.find(
-                                    (item) => item.id === opportunity.book_id,
-                                  );
                                   return [
                                     String(author?.name ?? opportunity.name),
-                                    book?.title ? String(book.title) : "",
                                     options.opportunity[
                                       String(opportunity.status)
                                     ] ?? String(opportunity.status),
@@ -947,10 +943,6 @@ export function RecordForm({
                                 setValue(
                                   "publisher_id",
                                   String(opportunity.publisher_id ?? ""),
-                                );
-                                setValue(
-                                  "book_id",
-                                  String(opportunity.book_id ?? ""),
                                 );
                                 setValue(
                                   "responsible_user_id",

@@ -252,7 +252,7 @@ export function Workbench({
     URL.revokeObjectURL(url);
   }
   function convert(row: Row, table: string) {
-    const book = data.books?.find((b) => b.id === row.book_id);
+    const book = data.books?.find((item) => item.id === row.book_id);
     edit("campaigns", {
       name:
         table === "opportunities"
@@ -263,17 +263,13 @@ export function Workbench({
             row.year,
       opportunity_id: table === "opportunities" ? row.id : null,
       book_club_slot_id: table === "book_club_slots" ? row.id : null,
-      author_id: row.author_id ?? book?.author_id ?? null,
-      publisher_id: row.publisher_id ?? book?.publisher_id ?? null,
-      book_id: row.book_id,
+      author_id: table === "opportunities" ? row.author_id ?? null : row.author_id ?? book?.author_id ?? null,
+      publisher_id: table === "opportunities" ? row.publisher_id ?? null : row.publisher_id ?? book?.publisher_id ?? null,
+      book_id: table === "opportunities" ? row.book_id ?? null : row.book_id,
       responsible_user_id: row.responsible_user_id,
       proposal_type: row.proposal_type ?? "media_kit",
-      service_package_id: row.service_package_id ?? null,
-      contract_duration_months: row.contract_duration_months ?? null,
-      monthly_value: row.monthly_value ?? null,
-      selected_package_item_ids: row.selected_package_item_ids ?? [],
       campaign_type: table === "book_club_slots" ? "book_club" : "advertising",
-      total_value: row.estimated_value ?? 0,
+      total_value: 0,
       status: "awaiting_payment",
     });
   }
@@ -405,7 +401,7 @@ export function Workbench({
                 className="button small"
                 onClick={() => convert(row, table)}
               >
-                Converter em campanha
+                Iniciar campanha
               </button>
             )}
           </>
@@ -734,6 +730,8 @@ export function Workbench({
     const rel: { title: string; table: string; field: string; rows: Row[] }[] =
       [];
     for (const other of modules) {
+      if (m.table === "opportunities" && other.table === "opportunity_service_items")
+        continue;
       for (const f of other.fields.filter(
         (f) => f.source === m.table && f.type === "relation",
       )) {
@@ -978,6 +976,17 @@ export function Workbench({
                   </button>
                 )}
             </section>
+            {m.table === "campaigns" && (
+              <section className="panel campaign-flow">
+                <div><span className="eyebrow">Fluxo da campanha</span><h2>Configure o contrato por etapas</h2><p className="muted">Livro e serviços definem o contratado; financeiro registra as cobranças; o Hub de Serviços controla as entregas.</p></div>
+                <div className="campaign-flow-actions">
+                  <button className="small-button" onClick={() => edit("campaigns", r)}>1. Associar livro</button>
+                  <button className="small-button" onClick={() => edit("campaign_services", { campaign_id: r.id })}>2. Adicionar serviços</button>
+                  <button className="small-button" onClick={() => setTab("payments")}>3. Financeiro</button>
+                  <Link className="small-button" href={href("campaign_services")}>4. Datas e entregas</Link>
+                </div>
+              </section>
+            )}
             {m.table === "campaigns" && (
               <section className="panel">
                 <div className="section-heading">

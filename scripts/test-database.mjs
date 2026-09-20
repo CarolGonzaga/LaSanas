@@ -39,6 +39,7 @@ for (const name of [
   "202609200016_production_status_and_updates.sql",
   "202609200017_opportunity_services.sql",
   "202609200018_unify_services_and_payment_activation.sql",
+  "202609200019_campaign_service_financial_flow.sql",
 ]) {
   const source = await readFile(
     new URL("../supabase/migrations/" + name, import.meta.url),

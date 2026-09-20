@@ -607,13 +607,6 @@ export const modules: Module[] = [
         required: false,
       },
       {
-        name: "book_id",
-        label: "Livro",
-        type: "relation",
-        required: false,
-        source: "books",
-      },
-      {
         name: "media_kit_sent",
         label: "Media kit enviado?",
         type: "select",
@@ -647,37 +640,6 @@ export const modules: Module[] = [
         type: "select",
         required: true,
         source: "proposal",
-      },
-      {
-        name: "service_package_id",
-        label: "Plano mensal",
-        type: "relation",
-        required: false,
-        source: "service_packages",
-      },
-      {
-        name: "contract_duration_months",
-        label: "Meses contratados",
-        type: "integer",
-        required: false,
-      },
-      {
-        name: "monthly_value",
-        label: "Valor mensal",
-        type: "money",
-        required: false,
-      },
-      {
-        name: "selected_package_item_ids",
-        label: "Serviços avulsos incluídos",
-        type: "package-items",
-        required: false,
-      },
-      {
-        name: "estimated_value",
-        label: "Valor estimado",
-        type: "money",
-        required: false,
       },
       {
         name: "first_contact_at",

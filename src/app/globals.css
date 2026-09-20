@@ -2350,6 +2350,10 @@ input[type="checkbox"] {
 .settings-catalog { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-top: 18px; }
 .settings-catalog h2 { margin: 0 0 5px; }
 .settings-catalog-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.campaign-flow { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 18px; }
+.campaign-flow h2 { margin: 5px 0; font-size: 17px; }
+.campaign-flow p { margin: 0; }
+.campaign-flow-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .work-card-top {
   display: flex;
   gap: 7px;
@@ -2415,7 +2419,7 @@ input[type="checkbox"] {
     flex: 1;
   }
   .service-hub-filters { grid-template-columns: 1fr; }
-  .service-hub-card, .settings-catalog { align-items: stretch; flex-direction: column; }
+  .service-hub-card, .settings-catalog, .campaign-flow { align-items: stretch; flex-direction: column; }
   .service-hub-actions { justify-content: space-between; }
   .profile-fields {
     grid-template-columns: 1fr;
