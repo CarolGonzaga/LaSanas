@@ -12,6 +12,7 @@ import {
   ArrowRight,
   BookOpen,
   MessageCircle,
+  GripVertical,
 } from "lucide-react";
 import type { Dataset } from "@/lib/workspace";
 import {
@@ -24,7 +25,7 @@ import {
 import { money, date, today } from "@/lib/format";
 import { StatusBadge } from "./status-badge";
 import { Dialog, DialogContent } from "./ui/dialog";
-import { getTodayWorkItems, type WorkItem } from "@/lib/work-items";
+import { buildWorkItems, type WorkItem } from "@/lib/work-items";
 
 type Event = {
   id: string;
@@ -563,19 +564,64 @@ export function ProductionDashboard({
 }: {
   data: Dataset;
   userId: string;
-  onStatus: (id: string, source: "tasks" | "service_occurrences", status: string) => void;
+  onStatus: (id: string, source: "tasks" | "service_occurrences", status: string) => Promise<boolean>;
 }) {
   const now = today();
   const [selected, setSelected] = useState<WorkItem | null>(null);
-  const items = getTodayWorkItems(data, userId, now).filter((item) => item.source === "service_occurrences" && item.dueDate && item.row.schedule_status === "scheduled");
-  const active = items.filter((item) => !["completed", "cancelled"].includes(item.status));
-  const sections = [["Atrasados", active.filter((item) => item.dueDate < now)], ["Para hoje", active.filter((item) => item.dueDate === now)], ["Próximos", active.filter((item) => item.dueDate > now)]] as const;
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, string>>({});
+  const boardColumns = [
+    ["pending", "Pendente", "Ainda não iniciados"],
+    ["in_progress", "Em andamento", "Em execução"],
+    ["in_revision", "Em alteração", "Ajustes ou revisão"],
+    ["completed", "Concluído", "Finalizados"],
+    ["cancelled", "Cancelado", "Não serão executados"],
+  ] as const;
+  const items = buildWorkItems(data).filter((item) => {
+    if (
+      item.source !== "service_occurrences" ||
+      item.assignedTo !== userId ||
+      !item.dueDate ||
+      item.row.schedule_status !== "scheduled"
+    )
+      return false;
+    const service = data.campaign_services?.find(
+      (row) => row.id === item.row.campaign_service_id,
+    );
+    const campaign = data.campaigns?.find(
+      (row) => row.id === service?.campaign_id,
+    );
+    return !!campaign && ["active", "paused", "completed"].includes(String(campaign.status));
+  });
+  const itemStatus = (item: WorkItem) => statusOverrides[item.id] ?? item.status;
+  const open = items.filter((item) => !["completed", "cancelled"].includes(itemStatus(item)));
+  const dueSummary = [
+    ["Atrasados", open.filter((item) => item.dueDate < now).length],
+    ["Hoje", open.filter((item) => item.dueDate === now).length],
+    ["Próximos", open.filter((item) => item.dueDate > now).length],
+  ] as const;
+  const dueLabel = (item: WorkItem) =>
+    item.dueDate < now ? "Atrasado" : item.dueDate === now ? "Para hoje" : "Próximo";
+  const moveItem = async (item: WorkItem, status: string) => {
+    const previous = itemStatus(item);
+    if (previous === status) return;
+    setStatusOverrides((current) => ({ ...current, [item.id]: status }));
+    const saved = await onStatus(item.id, item.source, status);
+    if (!saved)
+      setStatusOverrides((current) => ({ ...current, [item.id]: previous }));
+  };
   const details = selected && (() => { const service = data.campaign_services?.find((item) => item.id === selected.row.campaign_service_id); const campaign = data.campaigns?.find((item) => item.id === service?.campaign_id); const book = data.books?.find((item) => item.id === (service?.book_id ?? campaign?.book_id)); const author = data.authors?.find((item) => item.id === (campaign?.author_id ?? book?.author_id)); const publisher = data.publishers?.find((item) => item.id === campaign?.publisher_id); const payments = (data.payments ?? []).filter((item) => item.campaign_id === campaign?.id && item.status === "paid"); return { service, campaign, book, author, publisher, paid: payments.reduce((sum, item) => sum + Number(item.amount), 0) }; })();
   return (
     <>
-      <div className="page-header production-header"><div><span className="eyebrow">Meu dia</span><h1>Serviços confirmados</h1><p>{sections[0][1].length} atrasados · {sections[1][1].length} para hoje · {sections[2][1].length} próximos</p></div></div>
-      {sections.map(([label, rows]) => <section className="production-section" key={label}><h2>{label}<small>{rows.length}</small></h2>{rows.length ? <div className="production-board">{rows.map((item) => <article className="work-card" key={item.id} onClick={() => setSelected(item)}><button className="work-complete" aria-label="Concluir" onClick={(event) => { event.stopPropagation(); onStatus(item.id, item.source, "completed"); }}>✓</button><strong>{item.title}</strong><small>{item.subtitle}</small><p>{date(item.dueDate)}{item.dueTime ? ` · ${item.dueTime.slice(0, 5)}` : ""}</p><select aria-label={`Status de ${item.title}`} value={item.status} onClick={(event) => event.stopPropagation()} onChange={(event) => onStatus(item.id, item.source, event.target.value)}><option value="pending">Pendente</option><option value="in_progress">Em andamento</option><option value="in_revision">Em alteração</option><option value="completed">Concluído</option><option value="cancelled">Cancelado</option></select></article>)}</div> : <p className="quiet-empty">Nenhum serviço nesta seção.</p>}</section>)}
-      <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}><DialogContent title={selected?.title ?? "Serviço"} description="Resumo da execução confirmada.">{details && <dl className="detail-grid"><div><dt>Data</dt><dd>{selected && date(selected.dueDate)}</dd></div><div><dt>Status</dt><dd>{selected?.status}</dd></div><div><dt>Autora / editora</dt><dd>{String(details.author?.name ?? details.publisher?.name ?? "—")}</dd></div><div><dt>Livro</dt><dd>{String(details.book?.title ?? "—")}</dd></div><div><dt>Valor contratado</dt><dd>{money(String(details.campaign?.total_value ?? 0))}</dd></div><div><dt>Valor pago</dt><dd>{money(details.paid)}</dd></div><div className="full"><dt>O que precisa ser feito</dt><dd>{String(details.service?.notes ?? details.service?.description ?? "Sem instruções adicionais.")}</dd></div></dl>}<div className="dialog-actions"><button className="button secondary" onClick={() => setSelected(null)}>Fechar</button></div></DialogContent></Dialog>
+      <div className="page-header production-header"><div><span className="eyebrow">Meu dia</span><h1>Quadro de produção</h1><p>Serviços confirmados, com data definida e atribuídos a você.</p></div><div className="production-summary">{dueSummary.map(([label, count]) => <div key={label}><strong>{count}</strong><span>{label}</span></div>)}</div></div>
+      <p className="board-instructions"><GripVertical size={15} aria-hidden="true" /> Arraste um card entre as colunas para atualizar o status. Em telas touch, use o seletor no card.</p>
+      <section className="production-board" aria-label="Quadro de serviços por status">
+        {boardColumns.map(([status, label, description]) => {
+          const rows = items.filter((item) => itemStatus(item) === status);
+          return <section className={`production-column production-column-${status}`} key={status} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const item = items.find((current) => current.id === draggedId); if (item) void moveItem(item, status); setDraggedId(null); }}><header><div><h2>{label}<small>{rows.length}</small></h2><p>{description}</p></div></header><div className="production-dropzone">{rows.length ? rows.map((item) => <article className={`work-card ${draggedId === item.id ? "is-dragging" : ""}`} key={item.id} draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", item.id); setDraggedId(item.id); }} onDragEnd={() => setDraggedId(null)} onClick={() => setSelected(item)}><div className="work-card-top"><button className="work-complete" aria-label={`Concluir ${item.title}`} disabled={itemStatus(item) === "completed"} onClick={(event) => { event.stopPropagation(); void moveItem(item, "completed"); }}>✓</button><span className={`due-chip due-${dueLabel(item).toLowerCase().replace(" ", "-")}`}>{dueLabel(item)}</span><GripVertical className="work-drag-handle" size={16} aria-hidden="true" /></div><strong>{item.title}</strong><small>{item.subtitle}</small><p>{date(item.dueDate)}{item.dueTime ? ` · ${item.dueTime.slice(0, 5)}` : ""}</p><select aria-label={`Status de ${item.title}`} value={itemStatus(item)} onClick={(event) => event.stopPropagation()} onChange={(event) => void moveItem(item, event.target.value)}><option value="pending">Pendente</option><option value="in_progress">Em andamento</option><option value="in_revision">Em alteração</option><option value="completed">Concluído</option><option value="cancelled">Cancelado</option></select></article>) : <div className="production-empty">Arraste serviços para cá.</div>}</div></section>;
+        })}
+      </section>
+      <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}><DialogContent title={selected?.title ?? "Serviço"} description="Resumo da execução confirmada.">{details && <dl className="detail-grid"><div><dt>Data</dt><dd>{selected && date(selected.dueDate)}</dd></div><div><dt>Status</dt><dd>{selected && options.occurrence[itemStatus(selected)]}</dd></div><div><dt>Autora / editora</dt><dd>{String(details.author?.name ?? details.publisher?.name ?? "—")}</dd></div><div><dt>Livro</dt><dd>{String(details.book?.title ?? "—")}</dd></div><div><dt>Valor contratado</dt><dd>{money(String(details.campaign?.total_value ?? 0))}</dd></div><div><dt>Valor pago</dt><dd>{money(details.paid)}</dd></div><div className="full"><dt>O que precisa ser feito</dt><dd>{String(details.service?.notes ?? details.service?.description ?? "Sem instruções adicionais.")}</dd></div></dl>}<div className="dialog-actions"><button className="button secondary" onClick={() => setSelected(null)}>Fechar</button></div></DialogContent></Dialog>
     </>
   );
 }

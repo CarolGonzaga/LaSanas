@@ -140,6 +140,28 @@ export function Workbench({
         router.refresh();
       } else toast.error(result.message);
     });
+  const updateProductionStatus = async (
+    itemId: string,
+    source: "tasks" | "service_occurrences",
+    status: string,
+  ) => {
+    if (readOnly) {
+      toast.info("Entre com sua conta para salvar dados reais.");
+      return false;
+    }
+    const result = await businessAction(
+      "update-work-status",
+      itemId,
+      { source, status },
+    );
+    if (result.ok) {
+      toast.success(result.message);
+      router.refresh();
+      return true;
+    }
+    toast.error(result.message);
+    return false;
+  };
   async function openAsset(table: string, row: Row, copy = false) {
     const result = await assetUrl(table, row.id);
     if (!result.ok || !result.url) {
@@ -1458,13 +1480,7 @@ export function Workbench({
         <ProductionDashboard
           data={data}
           userId={userId}
-          onStatus={(itemId, source, status) =>
-            run(
-              "update-work-status",
-              { id: itemId, workspace_id: workspace?.id ?? "" },
-              { source, status },
-            )
-          }
+          onStatus={updateProductionStatus}
         />
       ) : (
         <OperationalDashboard
