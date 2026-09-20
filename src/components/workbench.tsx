@@ -44,6 +44,7 @@ import { ConfirmDialog } from "./ui/confirm-dialog";
 import {
   OperationalDashboard,
   ProductionDashboard,
+  ServicesHub,
   UnifiedAgenda,
 } from "./operational";
 import { ThemeSelect } from "./theme-toggle";
@@ -1079,6 +1080,16 @@ export function Workbench({
               </p>
             )}
           </section>
+        ) : relatedTab?.table === "opportunity_service_items" &&
+          m.table === "opportunities" && r.status === "converted" ? (
+          <section>
+            <div className="section-heading"><div><h2>Serviços contratados</h2><p className="muted">Após a conversão, estes serviços são gerenciados exclusivamente na campanha.</p></div></div>
+            {(() => {
+              const campaign = (data.campaigns ?? []).find((item) => item.opportunity_id === r.id);
+              const services = (data.campaign_services ?? []).filter((item) => item.campaign_id === campaign?.id);
+              return campaign ? <><Link className="inline-link" href={href("campaigns", campaign.id)}>Abrir campanha <ArrowUpRight size={15} /></Link>{cards("campaign_services", services, true)}</> : <p className="quiet-empty">A campanha vinculada ainda não foi encontrada.</p>;
+            })()}
+          </section>
         ) : relatedTab ? (
           <section>
             <div className="section-heading">
@@ -1395,6 +1406,17 @@ export function Workbench({
             )}
           </section>
         </div>
+        <section className="panel settings-catalog">
+          <div>
+            <h2>Serviços e planos</h2>
+            <p className="muted">Gerencie o catálogo e os modelos de planos sem misturá-los à operação diária.</p>
+          </div>
+          <div className="settings-catalog-links">
+            <Link className="small-button" href={href("service_types")}>Catálogo de serviços</Link>
+            <Link className="small-button" href={href("service_packages")}>Planos mensais</Link>
+            <Link className="small-button" href={href("service_package_items")}>Itens dos planos</Link>
+          </div>
+        </section>
         <section className="panel export-panel">
           <div>
             <h2>Exportar e-mails</h2>
@@ -1494,6 +1516,8 @@ export function Workbench({
       );
   else if (route === "agenda")
     content = <UnifiedAgenda data={data} edit={edit} />;
+  else if (route === "servicos-contratados")
+    content = <ServicesHub data={data} edit={edit} />;
   else if (route === "configuracoes") content = settings();
   else if (mod && record) content = detail(mod, record);
   else if (mod && id)

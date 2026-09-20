@@ -552,6 +552,21 @@ create policy business_files on storage.objects for all to authenticated
 grant select,insert,update,delete on all tables in schema public to authenticated;
 commit;
 
+-- Atualização de instalações novas: a produção é liberada pelo pagamento inicial.
+create or replace function public.sync_campaign_payment_state(p_campaign uuid)
+returns void language plpgsql security invoker set search_path=public as $$
+declare c public.campaigns; received numeric; expected numeric; begin
+ select * into c from public.campaigns where id=p_campaign for update; if not found or c.status in ('draft','cancelled','completed') or c.payment_override_reason is not null then return; end if;
+ expected:=case when c.payment_plan='full_upfront' then c.total_value else round(c.total_value/2,2) end;
+ select coalesce(sum(amount),0) into received from public.payments where campaign_id=c.id and status='paid' and (c.payment_plan='full_upfront' or installment_number=1);
+ if received>=expected then if c.status in ('awaiting_payment','paused') then update public.campaigns set status='active' where id=c.id; end if;
+ elsif c.status='active' then update public.campaigns set status='paused' where id=c.id; end if;
+end $$;
+create or replace function public.sync_campaign_payment_state_trigger() returns trigger language plpgsql security invoker set search_path=public as $$ begin perform public.sync_campaign_payment_state(case when TG_OP='DELETE' then old.campaign_id else new.campaign_id end); return null; end $$;
+drop trigger if exists payment_recheck on public.payments;
+drop trigger if exists payment_sync_campaign_state on public.payments;
+create trigger payment_sync_campaign_state after insert or update or delete on public.payments for each row execute function public.sync_campaign_payment_state_trigger();
+
 
 -- 202609170002_business_rules.sql
 begin;

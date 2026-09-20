@@ -2319,6 +2319,37 @@ input[type="checkbox"] {
   color: var(--accent);
   font-weight: 700;
 }
+.work-payment {
+  color: var(--muted);
+  font-size: 11px;
+}
+.work-card .work-delivery {
+  color: var(--accent);
+  font-size: 12px;
+  letter-spacing: .03em;
+}
+.service-hub-filters {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 15px 0 20px;
+}
+.service-hub-list { display: grid; gap: 10px; }
+.service-hub-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 17px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.service-hub-card h2 { margin: 5px 0; font-size: 16px; }
+.service-hub-card p { margin: 4px 0; color: var(--muted); font-size: 13px; }
+.service-hub-actions { display: flex; align-items: center; gap: 9px; }
+.settings-catalog { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-top: 18px; }
+.settings-catalog h2 { margin: 0 0 5px; }
+.settings-catalog-links { display: flex; flex-wrap: wrap; gap: 8px; }
 .work-card-top {
   display: flex;
   gap: 7px;
@@ -2381,6 +2412,9 @@ input[type="checkbox"] {
   .production-summary > div {
     flex: 1;
   }
+  .service-hub-filters { grid-template-columns: 1fr; }
+  .service-hub-card, .settings-catalog { align-items: stretch; flex-direction: column; }
+  .service-hub-actions { justify-content: space-between; }
   .profile-fields {
     grid-template-columns: 1fr;
   }

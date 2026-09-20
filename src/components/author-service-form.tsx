@@ -23,6 +23,7 @@ export function AuthorServiceForm({
 }) {
   const router = useRouter();
   const [bookId, setBookId] = useState("");
+  const [campaignId, setCampaignId] = useState("");
   const [serviceTypeId, setServiceTypeId] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [unitPrice, setUnitPrice] = useState("0");
@@ -38,6 +39,12 @@ export function AuthorServiceForm({
   );
   const serviceTypes = (data.service_types ?? []).filter(
     (service) => service.active && !service.archived_at,
+  );
+  const campaigns = (data.campaigns ?? []).filter(
+    (campaign) =>
+      campaign.author_id === author.id &&
+      !campaign.archived_at &&
+      !["cancelled", "completed"].includes(String(campaign.status)),
   );
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -57,6 +64,7 @@ export function AuthorServiceForm({
       scheduleStatus,
       scheduledDate: scheduleStatus === "scheduled" ? scheduledDate : null,
       assignedTo: assignedTo || null,
+      campaignId: campaignId || null,
     });
     setSaving(false);
     if (!result.ok) {
@@ -72,7 +80,7 @@ export function AuthorServiceForm({
     <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
       <DialogContent
         title="Adicionar serviço"
-        description="O serviço será vinculado a esta autora e ficará pendente até a conclusão."
+        description="Selecione a campanha que receberá o serviço ou escolha criar uma nova campanha de forma explícita."
       >
         <form className="record-form" onSubmit={submit}>
           <label>
@@ -89,6 +97,18 @@ export function AuthorServiceForm({
                 </option>
               ))}
             </select>
+          </label>
+          <label>
+            Campanha *
+            <select value={campaignId} onChange={(event) => setCampaignId(event.target.value)}>
+              <option value="">Criar nova campanha</option>
+              {campaigns.map((campaign) => (
+                <option key={campaign.id} value={campaign.id}>
+                  {String(campaign.name)}
+                </option>
+              ))}
+            </select>
+            <small className="field-help">Uma nova campanha será criada apenas se esta opção permanecer selecionada.</small>
           </label>
           <label>
             Tipo de serviço *

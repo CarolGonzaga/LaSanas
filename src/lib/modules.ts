@@ -859,8 +859,8 @@ export const modules: Module[] = [
   {
     table: "service_types",
     route: "servicos",
-    title: "Serviços",
-    description: "Seu catálogo de divulgação literária.",
+    title: "Catálogo de serviços",
+    description: "Modelos e valores padrão; não representa serviços contratados.",
     label: "name",
     fields: [
       {

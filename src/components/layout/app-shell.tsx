@@ -43,7 +43,7 @@ const groups = [
     label: "OPERAÇÃO",
     links: [
       ["campanhas", "Clientes / Campanhas", Layers],
-      ["servicos", "Serviços", CheckSquare],
+      ["servicos-contratados", "Serviços", CheckSquare],
       ["agenda", "Agenda", CalendarDays],
       ["leitura-coletiva", "Leitura coletiva", BookOpen],
       ["clube-presencial", "Clube presencial", Users],

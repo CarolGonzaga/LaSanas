@@ -38,6 +38,7 @@ for (const name of [
   "202609200015_monthly_plan_contracts.sql",
   "202609200016_production_status_and_updates.sql",
   "202609200017_opportunity_services.sql",
+  "202609200018_unify_services_and_payment_activation.sql",
 ]) {
   const source = await readFile(
     new URL("../supabase/migrations/" + name, import.meta.url),
@@ -205,8 +206,28 @@ try {
     "update payments set status='paid',paid_at=now(),payment_method='pix' where id=$1",
     [pays[0].id],
   );
-  await sql("update campaigns set status='active' where id=$1", [camp.id]);
-  console.log("PASS 50/50, precisão monetária, bloqueio IA e sinal");
+  assert.equal(
+    (await sql("select status from campaigns where id=$1", [camp.id]))[0].status,
+    "active",
+  );
+  assert.equal(
+    (await sql("select status from payments where id=$1", [pays[1].id]))[0].status,
+    "pending",
+  );
+  await sql("update payments set status='pending' where id=$1", [pays[0].id]);
+  assert.equal(
+    (await sql("select status from campaigns where id=$1", [camp.id]))[0].status,
+    "paused",
+  );
+  await sql(
+    "update payments set status='paid',paid_at=now(),payment_method='pix' where id=$1",
+    [pays[0].id],
+  );
+  assert.equal(
+    (await sql("select status from campaigns where id=$1", [camp.id]))[0].status,
+    "active",
+  );
+  console.log("PASS 50/50, precisão monetária, bloqueio IA e ativação automática");
   const [service] = await sql(
     "insert into campaign_services(workspace_id,campaign_id,custom_name,quantity,unit_price) values($1,$2,'Story',5,30) returning id",
     [u1, camp.id],

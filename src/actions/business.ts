@@ -64,6 +64,7 @@ const authorServiceInput = z.object({
   scheduleStatus: z.enum(["to_confirm", "scheduled"]),
   scheduledDate: z.iso.date().nullable(),
   assignedTo: z.uuid().nullable(),
+  campaignId: z.uuid().nullable(),
 });
 export async function createAuthorService(input: unknown): Promise<Result> {
   try {
@@ -82,13 +83,14 @@ export async function createAuthorService(input: unknown): Promise<Result> {
       p_schedule_status: values.scheduleStatus,
       p_scheduled_date: values.scheduledDate,
       p_assigned_to: values.assignedTo,
+      p_campaign: values.campaignId,
     });
     checked(error);
     refresh();
     return {
       ok: true,
       id: String(data),
-      message: "Serviço adicionado à autora.",
+      message: "Serviço registrado na campanha.",
     };
   } catch (error) {
     return failure(error);
