@@ -12,32 +12,40 @@ import { Dialog, DialogContent } from "./ui/dialog";
 import { ConfirmDialog } from "./ui/confirm-dialog";
 import { Button } from "./ui/button";
 
-const dateTime = (value: string) => new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
-const localDateTime = () => {
-  const now = new Date();
-  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-  return now.toISOString().slice(0, 16);
-};
-const toLocalInput = (value: string) => {
-  const date = new Date(value);
-  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-  return date.toISOString().slice(0, 16);
-};
+const saoPauloTimeZone = "America/Sao_Paulo";
+const dateTime = (value: string) =>
+  new Intl.DateTimeFormat("pt-BR", {
+    timeZone: saoPauloTimeZone,
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(value));
+const toSaoPauloInput = (value: Date | string) =>
+  new Intl.DateTimeFormat("sv-SE", {
+    timeZone: saoPauloTimeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  })
+    .format(new Date(value))
+    .replace(" ", "T");
 
 export function OpportunityConversation({ opportunity, data, readOnly = false }: { opportunity: Row; data: Dataset; readOnly?: boolean }) {
   const router = useRouter();
   const [composerOpen, setComposerOpen] = useState(false);
   const [text, setText] = useState("");
   const [direction, setDirection] = useState<"incoming" | "outgoing">("incoming");
-  const [contactedAt, setContactedAt] = useState(localDateTime);
+  const [contactedAt, setContactedAt] = useState(() => toSaoPauloInput(new Date()));
   const [editing, setEditing] = useState<Row | null>(null);
   const [removing, setRemoving] = useState<Row | null>(null);
   const [busy, start] = useTransition();
   const messages = (data.communication_logs ?? [])
     .filter((message) => message.opportunity_id === opportunity.id && !message.archived_at)
     .sort((a, b) => String(a.contacted_at).localeCompare(String(b.contacted_at)) || String(a.created_at).localeCompare(String(b.created_at)) || String(a.id).localeCompare(String(b.id)));
-  function openComposer() { setText(""); setDirection("incoming"); setContactedAt(localDateTime()); setComposerOpen(true); }
-  function openEditor(message: Row) { setText(String(message.summary)); setDirection(message.direction === "outgoing" ? "outgoing" : "incoming"); setContactedAt(toLocalInput(String(message.contacted_at))); setEditing(message); setComposerOpen(true); }
+  function openComposer() { setText(""); setDirection("incoming"); setContactedAt(toSaoPauloInput(new Date())); setComposerOpen(true); }
+  function openEditor(message: Row) { setText(String(message.summary)); setDirection(message.direction === "outgoing" ? "outgoing" : "incoming"); setContactedAt(toSaoPauloInput(String(message.contacted_at))); setEditing(message); setComposerOpen(true); }
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (readOnly) return toast.info("Entre com sua conta para registrar mensagens.");
@@ -66,7 +74,7 @@ export function OpportunityConversation({ opportunity, data, readOnly = false }:
           <label>Quem enviou?
             <select value={direction} onChange={(event) => setDirection(event.target.value as "incoming" | "outgoing")}><option value="incoming">Cliente</option><option value="outgoing">Equipe</option></select>
           </label>
-          <label>Data e horário de envio
+          <label>Data e horário de envio (São Paulo)
             <input type="datetime-local" value={contactedAt} onChange={(event) => setContactedAt(event.target.value)} required />
           </label>
           <label className="full">Mensagem<textarea rows={7} value={text} onChange={(event) => setText(event.target.value)} required autoFocus /></label>

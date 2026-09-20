@@ -45,6 +45,10 @@ function checked(error: { message: string; code?: string } | null) {
 function refresh() {
   revalidatePath("/", "layout");
 }
+function saoPauloLocalToIso(value: string) {
+  const local = value.length === 16 ? value + ":00" : value;
+  return new Date(local + "-03:00").toISOString();
+}
 const authorServiceInput = z.object({
   authorId: z.uuid(),
   bookId: z.uuid().nullable(),
@@ -190,7 +194,7 @@ export async function createOpportunityMessage(input: unknown): Promise<Result> 
       channel: opportunity.source_channel,
       direction: values.direction,
       responsible_user_id: user.id,
-       contacted_at: new Date(values.contactedAt).toISOString(),
+      contacted_at: saoPauloLocalToIso(values.contactedAt),
       summary: values.text,
       parent_message_id: values.parentMessageId,
     }).select("id").single();
@@ -212,7 +216,7 @@ export async function updateOpportunityMessage(input: unknown): Promise<Result> 
     const { error } = await db.from("communication_logs").update({
       summary: values.text,
       direction: values.direction,
-      contacted_at: new Date(values.contactedAt).toISOString(),
+      contacted_at: saoPauloLocalToIso(values.contactedAt),
     }).eq("id", values.messageId).eq("opportunity_id", values.opportunityId).eq("workspace_id", workspace.id);
     checked(error);
     refresh();
