@@ -570,6 +570,45 @@ export async function removeRecord(table: string, id: string): Promise<Result> {
       refresh();
       return { ok: true, message: "Serviço e execuções associadas removidos." };
     }
+    if (["authors", "publishers"].includes(table)) {
+      const relationField = table === "authors" ? "author_id" : "publisher_id";
+      const dependentTables = ["books", "opportunities", "campaigns"];
+      const checks = await Promise.all(
+        dependentTables.map(async (dependentTable) => {
+          const { count, error } = await db
+            .from(dependentTable)
+            .select("id", { count: "exact", head: true })
+            .eq("workspace_id", workspace.id)
+            .eq(relationField, id);
+          checked(error);
+          return count ?? 0;
+        }),
+      );
+      if (checks.some(Boolean))
+        throw new Error("Não é possível excluir enquanto houver livros, oportunidades ou campanhas vinculadas. Arquive o cadastro ou remova os vínculos primeiro.");
+      if (table === "publishers") {
+        const { error } = await db
+          .from("publisher_contacts")
+          .delete()
+          .eq("workspace_id", workspace.id)
+          .eq("publisher_id", id);
+        checked(error);
+      }
+    }
+    if (table === "opportunities") {
+      const { count, error: campaignError } = await db
+        .from("campaigns")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", workspace.id)
+        .eq("opportunity_id", id);
+      checked(campaignError);
+      if (count)
+        throw new Error("Não é possível excluir uma oportunidade já convertida em campanha. Exclua a campanha primeiro ou arquive a oportunidade.");
+      for (const dependentTable of ["communication_logs", "opportunity_service_items"]) {
+        const { error } = await db.from(dependentTable).delete().eq("workspace_id", workspace.id).eq("opportunity_id", id);
+        checked(error);
+      }
+    }
     const { data, error: readError } = await db
       .from(table)
       .select("*")

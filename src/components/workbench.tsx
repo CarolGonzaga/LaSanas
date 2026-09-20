@@ -453,13 +453,20 @@ export function Workbench({
           "opportunities",
           "campaigns",
         ].includes(table) ? (
-          <button
-            className="icon-button"
-            aria-label="Arquivar ou reativar"
-            onClick={() => setConfirm({ table, row, archive: true })}
-          >
-            <Archive size={15} />
-          </button>
+          <>
+            <button
+              className="icon-button"
+              aria-label="Arquivar ou reativar"
+              onClick={() => setConfirm({ table, row, archive: true })}
+            >
+              <Archive size={15} />
+            </button>
+            { ["authors", "publishers", "opportunities"].includes(table) && (
+              <button className="icon-button delete-button" aria-label="Excluir" onClick={() => setConfirm({ table, row })}>
+                <Trash2 size={15} />
+              </button>
+            )}
+          </>
         ) : (
           <button
             className="icon-button delete-button"
