@@ -244,10 +244,6 @@ export async function saveRecord(
             .enum(["keep", "rebuild_pending", "rebuild_all"])
             .parse(mediaKitInput.payment_plan_action ?? "keep")
         : "keep";
-    const opportunityMediaKitSent =
-      table === "opportunities"
-        ? z.enum(["yes", "no"]).parse(mediaKitInput.media_kit_sent)
-        : null;
     const sentOpportunityId = registerMediaKitSend
       ? z.uuid().parse(mediaKitInput.sent_opportunity_id)
       : null;
@@ -299,16 +295,47 @@ export async function saveRecord(
       previousPaymentPlan = String(data?.payment_plan ?? "");
     }
     if (table === "opportunities") {
-      if (opportunityMediaKitSent === "no") {
-        values.media_kit_version_id = null;
-        values.media_kit_sent_at = null;
+      const bookId = z.uuid().parse(values.book_id);
+      const { data: book, error: bookError } = await db
+        .from("books")
+        .select("title,author_id,publisher_id")
+        .eq("id", bookId)
+        .eq("workspace_id", workspace.id)
+        .single();
+      checked(bookError);
+      if (!book || book.author_id !== values.author_id)
+        throw new Error("O livro selecionado deve pertencer à autora.");
+      const { data: author, error: authorError } = await db
+        .from("authors")
+        .select("name")
+        .eq("id", values.author_id)
+        .eq("workspace_id", workspace.id)
+        .single();
+      checked(authorError);
+      values.name = `${String(author?.name ?? "Autora")} — ${String(book.title)}`;
+      values.publisher_id = book.publisher_id ?? null;
+      values.responsible_user_id = (await requireContext()).user.id;
+    }
+    if (table === "opportunity_service_items") {
+      const kind = z.enum(["service", "package"]).parse(values.item_kind);
+      if (kind === "service") {
+        z.uuid().parse(values.service_type_id);
+        values.service_package_id = null;
+        values.duration_months = null;
+        values.payment_terms = values.payment_terms === "half_and_half" ? "half_and_half" : "full_upfront";
       } else {
-        if (!values.media_kit_version_id)
-          throw new Error("Selecione o media kit enviado.");
-        if (!values.media_kit_sent_at)
-          throw new Error("Informe a data de envio do media kit.");
+        const packageId = z.uuid().parse(values.service_package_id);
+        const { data: pack, error: packageError } = await db.from("service_packages").select("package_price,duration_months").eq("id", packageId).eq("workspace_id", workspace.id).single();
+        checked(packageError);
+        values.service_type_id = null;
+        values.quantity = "1";
+        values.duration_months = String(Math.max(1, Number(values.duration_months ?? pack?.duration_months ?? 3)));
+        values.unit_price = String(values.unit_price || pack?.package_price || 0);
+        values.payment_terms = "monthly_full";
       }
     }
+    if (table === "books" && !values.release_year)
+      values.release_year = String(new Date().getFullYear());
     if (
       table === "service_occurrences" &&
       values.schedule_status === "scheduled" &&
@@ -417,12 +444,7 @@ export async function saveRecord(
         .not("status", "in", '(completed,cancelled)');
       checked(assignmentError);
     }
-    if (
-      table === "campaigns" &&
-      id &&
-      previousPaymentPlan !== values.payment_plan &&
-      paymentPlanAction !== "keep"
-    ) {
+    if (table === "campaigns" && id && previousPaymentPlan !== values.payment_plan && paymentPlanAction !== "keep") {
       const { error: paymentError } = await db.rpc(
         "rebuild_campaign_payments",
         {
@@ -662,6 +684,9 @@ export async function businessAction(
           .max(600)
           .parse(args.quantity),
       });
+      checked(error);
+    } else if (action === "approve-opportunity") {
+      const { error } = await db.rpc("approve_opportunity", { p_opportunity: id });
       checked(error);
     } else if (action === "delete-campaign") {
       const { error } = await db.rpc("delete_campaign", {

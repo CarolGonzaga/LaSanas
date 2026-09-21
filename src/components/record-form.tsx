@@ -320,25 +320,24 @@ export function RecordForm({
       .map((item) => item.id);
     const duration = Number(pack.duration_months || 1);
     const monthly = Number(pack.package_price || 0);
-    setValue("contract_duration_months", String(duration), {
+    const durationField = table === "opportunity_service_items" ? "duration_months" : "contract_duration_months";
+    const priceField = table === "opportunity_service_items" ? "unit_price" : "monthly_value";
+    setValue(durationField, String(duration), {
       shouldDirty: true,
       shouldValidate: true,
     });
-    setValue("monthly_value", String(monthly), {
+    setValue(priceField, String(monthly), {
       shouldDirty: true,
       shouldValidate: true,
     });
-    setValue("selected_package_item_ids", initiallySelected, {
-      shouldDirty: true,
-      shouldValidate: true,
-    });
+    if (table !== "opportunity_service_items") setValue("selected_package_item_ids", initiallySelected, { shouldDirty: true, shouldValidate: true });
     const totalField =
       table === "opportunities" ? "estimated_value" : "total_value";
     setValue(totalField, String(monthly * duration), {
       shouldDirty: true,
       shouldValidate: true,
     });
-    setValue("proposal_type", "loyalty", { shouldDirty: true });
+    if (table === "opportunities") setValue("proposal_type", "loyalty", { shouldDirty: true });
   }
   function updatePlanTotal(
     field: "contract_duration_months" | "monthly_value",
@@ -456,6 +455,9 @@ export function RecordForm({
                 pagamento inicial e capa confirmada sem IA.
               </div>
             )}
+            {table === "opportunities" && (
+              <div className="notice full">A identificação é criada automaticamente a partir da autora e do livro. A editora é exibida a partir do cadastro do livro.</div>
+            )}
             {table === "service_packages" && (
               <section className="package-editor full">
                 <div>
@@ -544,6 +546,7 @@ export function RecordForm({
               </section>
             )}
             {mod.fields.map((f, index) => {
+              if (table === "opportunities" && f.name === "name") return null;
               if (
                 table === "media_kits" &&
                 f.persist === false &&
@@ -577,6 +580,9 @@ export function RecordForm({
                 values.media_kit_sent !== "yes"
               )
                 return null;
+              if (table === "opportunity_service_items" && f.name === "service_type_id" && values.item_kind !== "service") return null;
+              if (table === "opportunity_service_items" && ["service_package_id", "duration_months"].includes(f.name) && values.item_kind !== "package") return null;
+              if (table === "opportunity_service_items" && f.name === "payment_terms" && values.item_kind === "package") return null;
               const immutable = false;
               let choices =
                 f.type === "member"
@@ -729,6 +735,10 @@ export function RecordForm({
                           String(book.publisher_id ?? ""),
                         );
                     }
+                  }
+                  if (table === "opportunity_service_items" && f.name === "service_type_id" && e.target.value) {
+                    const service = data.service_types?.find((item) => item.id === e.target.value);
+                    if (service) setValue("unit_price", String(service.default_price ?? 0), { shouldDirty: true });
                   }
                   if (f.name === "service_package_id" && e.target.value)
                     selectPackage(e.target.value);

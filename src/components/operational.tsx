@@ -51,7 +51,7 @@ function dayOf(value: unknown) {
 export function eventsFor(data: Dataset): Event[] {
   const result: Event[] = [];
   const campaign = (id: unknown) => data.campaigns?.find((c) => c.id === id);
-  for (const item of buildWorkItems(data).filter((item) => item.source === "service_occurrences")) {
+  for (const item of buildWorkItems(data).filter((item) => item.source === "service_occurrences" && item.released)) {
     result.push({
       id: item.id,
       table: "service_occurrences",
@@ -148,11 +148,7 @@ export function OperationalDashboard({
   const now = today(),
     events = eventsFor(data),
     pending = events.filter((e) => !e.done);
-  const openDates = (data.service_occurrences ?? []).filter(
-    (occurrence) =>
-      occurrence.status === "pending" &&
-      occurrence.schedule_status === "to_confirm",
-  );
+  const openDates = buildWorkItems(data).filter((item) => item.source === "service_occurrences" && item.released && item.status === "pending" && item.scheduleStatus === "to_confirm").map((item) => item.row);
   const opp = data.opportunities ?? [],
     payments = data.payments ?? [];
   const activeOpportunities = opp.filter(isActiveOpportunity);

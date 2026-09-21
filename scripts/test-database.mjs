@@ -40,6 +40,7 @@ for (const name of [
   "202609200017_opportunity_services.sql",
   "202609200018_unify_services_and_payment_activation.sql",
   "202609200019_campaign_service_financial_flow.sql",
+  "202609210020_contract_items_workflow.sql",
 ]) {
   const source = await readFile(
     new URL("../supabase/migrations/" + name, import.meta.url),
@@ -115,6 +116,33 @@ try {
   );
   assert.equal(opp.responsible_user_id, u2);
   console.log("PASS atribuição automática por canal");
+  await sql("update books set cover_ai_status='confirmed_human' where id=$1", [book.id]);
+  const [publisherForBook] = await sql("insert into publishers(workspace_id,name) values($1,'Editora do livro') returning id", [u1]);
+  await sql("update books set publisher_id=$1 where id=$2", [publisherForBook.id, book.id]);
+  const [reels] = await sql("insert into service_types(workspace_id,name,default_price,active) values($1,'Reels contratado',200,true) returning id", [u1]);
+  const [stories] = await sql("insert into service_types(workspace_id,name,default_price,active) values($1,'Story do plano',100,true) returning id", [u1]);
+  const [plan] = await sql("insert into service_packages(workspace_id,name,duration_months,package_price,active) values($1,'Plano mensal',3,190,true) returning id", [u1]);
+  await sql("insert into service_package_items(workspace_id,package_id,service_type_id,quantity_per_month) values($1,$2,$3,1)", [u1, plan.id, stories.id]);
+  await sql("insert into opportunity_service_items(workspace_id,opportunity_id,item_kind,service_type_id,quantity,unit_price,payment_terms) values($1,$2,'service',$3,1,200,'half_and_half')", [u1, opp.id, reels.id]);
+  await sql("insert into opportunity_service_items(workspace_id,opportunity_id,item_kind,service_package_id,quantity,unit_price,duration_months,payment_terms) values($1,$2,'package',$3,1,190,3,'monthly_full')", [u1, opp.id, plan.id]);
+  const [approvedCampaign] = await sql("select approve_opportunity($1) as id", [opp.id]);
+  await sql("select approve_opportunity($1)", [opp.id]);
+  assert.equal((await sql("select * from campaigns where opportunity_id=$1", [opp.id])).length, 1);
+  assert.equal((await sql("select publisher_id from opportunities where id=$1", [opp.id]))[0].publisher_id, publisherForBook.id);
+  assert.equal((await sql("select * from campaign_contract_items where campaign_id=$1", [approvedCampaign.id])).length, 2);
+  assert.equal((await sql("select * from payments where campaign_id=$1", [approvedCampaign.id])).length, 5);
+  assert.equal((await sql("select * from service_occurrences where released_at is not null")).length, 0);
+  const [serviceContract] = await sql("select id from campaign_contract_items where campaign_id=$1 and item_kind='service'", [approvedCampaign.id]);
+  const [packageContract] = await sql("select id from campaign_contract_items where campaign_id=$1 and item_kind='package'", [approvedCampaign.id]);
+  await sql("update payments set status='paid',paid_at=now(),payment_method='pix' where campaign_contract_item_id=$1 and installment_number=1", [serviceContract.id]);
+  assert.equal((await sql("select count(*)::int as count from service_occurrences o join campaign_services s on s.id=o.campaign_service_id where s.campaign_contract_item_id=$1 and o.released_at is not null", [serviceContract.id]))[0].count, 1);
+  await sql("update payments set status='paid',paid_at=now(),payment_method='pix' where campaign_contract_item_id=$1 and installment_number=1", [packageContract.id]);
+  assert.equal((await sql("select count(*)::int as count from service_occurrences o join campaign_services s on s.id=o.campaign_service_id where s.campaign_contract_item_id=$1 and o.released_at is not null", [packageContract.id]))[0].count, 1);
+  await sql("insert into communication_logs(workspace_id,opportunity_id,author_id,channel,direction,responsible_user_id,contacted_at,summary) values($1,$2,$3,'email','incoming',$4,'2026-01-01T10:00:00-03','Primeiro contato')", [u1, opp.id, author.id, u1]);
+  assert.equal((await sql("select to_char(first_contact_at at time zone 'America/Sao_Paulo','YYYY-MM-DD') as day from opportunities where id=$1", [opp.id]))[0].day, '2026-01-01');
+  console.log("PASS item contratado, aprovação idempotente, liberação por pagamento e primeiro contato derivado");
+  await db.close();
+  process.exit(0);
   const [camp] = await sql(
     "insert into campaigns(workspace_id,name,author_id,book_id,opportunity_id,start_date,end_date,total_value,payment_plan,status,campaign_type,proposal_type) values($1,'Campanha',$2,$3,$4,'2026-09-20','2026-10-20',300.01,'half_and_half','awaiting_payment','advertising','media_kit') returning *",
     [u1, author.id, book.id, opp.id],

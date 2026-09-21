@@ -399,9 +399,9 @@ export function Workbench({
             {row.status === "approved" && (
               <button
                 className="button small"
-                onClick={() => convert(row, table)}
+                onClick={() => run("approve-opportunity", row)}
               >
-                Iniciar campanha
+                Aprovar oportunidade
               </button>
             )}
           </>
@@ -624,6 +624,18 @@ export function Workbench({
                         row.email ?? row.description ?? row.category ?? "",
                       )}
               </p>
+              {table === "opportunities" && (
+                <div className="opportunity-item-chips">
+                  {(data.opportunity_service_items ?? [])
+                    .filter((item) => item.opportunity_id === row.id)
+                    .map((item) => {
+                      const source = item.item_kind === "package"
+                        ? data.service_packages?.find((pack) => pack.id === item.service_package_id)
+                        : data.service_types?.find((service) => service.id === item.service_type_id);
+                      return <span className="badge" key={item.id}>{String(source?.name ?? "Item")}{item.item_kind === "package" ? ` · ${item.duration_months} meses` : ""}</span>;
+                    })}
+                </div>
+              )}
               {table === "books" && <StatusBadge value={row.cover_ai_status} />}
               {amount !== undefined && (
                 <div className="record-amount">{money(String(amount))}</div>
@@ -730,8 +742,6 @@ export function Workbench({
     const rel: { title: string; table: string; field: string; rows: Row[] }[] =
       [];
     for (const other of modules) {
-      if (m.table === "opportunities" && other.table === "opportunity_service_items")
-        continue;
       for (const f of other.fields.filter(
         (f) => f.source === m.table && f.type === "relation",
       )) {
@@ -746,16 +756,26 @@ export function Workbench({
         });
       }
     }
+    if (m.table === "opportunities") {
+      rel.length = 0;
+      rel.push(
+        { title: "Livro", table: "books", field: "", rows: (data.books ?? []).filter((book) => book.id === r.book_id) },
+        { title: "Comunicações", table: "communication_logs", field: "opportunity_id", rows: (data.communication_logs ?? []).filter((log) => log.opportunity_id === r.id) },
+        { title: "Serviços", table: "opportunity_service_items", field: "opportunity_id", rows: (data.opportunity_service_items ?? []).filter((item) => item.opportunity_id === r.id) },
+      );
+    }
     if (["authors", "publishers"].includes(m.table)) {
       const field = m.table === "authors" ? "author_id" : "publisher_id";
-      const campaigns = (data.campaigns ?? []).filter((c) => c[field] === r.id),
+      const relatedBooks = (data.books ?? []).filter((book) => book[field] === r.id);
+      const bookIds = relatedBooks.map((book) => book.id);
+      const campaigns = (data.campaigns ?? []).filter((c) => c[field] === r.id || bookIds.includes(String(c.book_id))),
         ids = campaigns.map((c) => c.id);
       const opportunityIds =
         m.table === "authors"
           ? (data.opportunities ?? [])
               .filter((opportunity) => opportunity.author_id === r.id)
               .map((opportunity) => opportunity.id)
-          : [];
+          : (data.opportunities ?? []).filter((opportunity) => bookIds.includes(String(opportunity.book_id))).map((opportunity) => opportunity.id);
       rel.push({
         title: "Financeiro",
         table: "payments",
@@ -765,10 +785,10 @@ export function Workbench({
         ),
       });
       rel.push({
-        title: "Serviços contratados",
-        table: "campaign_services",
+        title: "Serviços",
+        table: "campaign_contract_items",
         field: "",
-        rows: (data.campaign_services ?? []).filter((p) =>
+        rows: (data.campaign_contract_items ?? []).filter((p) =>
           ids.includes(String(p.campaign_id)),
         ),
       });
@@ -856,8 +876,8 @@ export function Workbench({
               <span>Total contratado</span>
               <strong>
                 {money(
-                  (rel.find((x) => x.table === "campaigns")?.rows ?? []).reduce(
-                    (sum, c) => sum + Number(c.total_value),
+                  (rel.find((x) => x.table === "campaign_contract_items")?.rows ?? []).reduce(
+                    (sum, c) => sum + Number(c.contract_total),
                     0,
                   ),
                 )}
@@ -945,23 +965,6 @@ export function Workbench({
                     </div>
                   ))}
               </dl>
-              {m.table === "opportunities" &&
-                (() => {
-                  const kit = (data.media_kits ?? []).find(
-                    (item) => item.id === r.media_kit_version_id,
-                  );
-                  const sent = !!r.media_kit_version_id;
-                  return (
-                    <div className="opportunity-media-summary">
-                      <dt>Media kit</dt>
-                      <dd>
-                        {sent
-                          ? `${kit ? labelOf(kit, "media_kits") : "Media kit"} — Enviado em ${date(String(r.media_kit_sent_at).slice(0, 10))}`
-                          : "Não enviado"}
-                      </dd>
-                    </div>
-                  );
-                })()}
               {m.table === "campaign_services" && progress(r)}
               {["client_assets", "media_kits", "books"].includes(m.table) &&
                 (r.storage_path ||
@@ -1089,15 +1092,15 @@ export function Workbench({
               </p>
             )}
           </section>
-        ) : relatedTab?.table === "opportunity_service_items" &&
-          m.table === "opportunities" && r.status === "converted" ? (
+        ) : relatedTab?.table === "opportunity_service_items" && m.table === "opportunities" ? (
           <section>
-            <div className="section-heading"><div><h2>Serviços contratados</h2><p className="muted">Após a conversão, estes serviços são gerenciados exclusivamente na campanha.</p></div></div>
-            {(() => {
-              const campaign = (data.campaigns ?? []).find((item) => item.opportunity_id === r.id);
-              const services = (data.campaign_services ?? []).filter((item) => item.campaign_id === campaign?.id);
-              return campaign ? <><Link className="inline-link" href={href("campaigns", campaign.id)}>Abrir campanha <ArrowUpRight size={15} /></Link>{cards("campaign_services", services, true)}</> : <p className="quiet-empty">A campanha vinculada ainda não foi encontrada.</p>;
-            })()}
+            <div className="section-heading"><div><h2>O que foi negociado</h2><p className="muted">Serviços e planos são comerciais até a aprovação; a produção só começa após o pagamento aplicável.</p></div><button className="button small" onClick={() => edit("opportunity_service_items", { opportunity_id: r.id, item_kind: "service", quantity: 1, unit_price: 0, payment_terms: "full_upfront" })}><Plus size={16} /> Adicionar item</button></div>
+            {relatedTab.rows.length ? <div className="record-list">{relatedTab.rows.map((item) => {
+              const isPlan = item.item_kind === "package";
+              const source = isPlan ? data.service_packages?.find((p) => p.id === item.service_package_id) : data.service_types?.find((s) => s.id === item.service_type_id);
+              const total = isPlan ? Number(item.unit_price) * Number(item.duration_months) : Number(item.unit_price) * Number(item.quantity);
+              return <article className="production-item" key={item.id}><div><strong>{String(source?.name ?? "Item")}</strong><p className="muted">{isPlan ? `${money(String(item.unit_price))}/mês · ${item.duration_months} meses · total ${money(total)}` : `Quantidade: ${item.quantity} · ${money(String(item.unit_price))} cada`}</p><small>{item.planned_date ? `Data prevista: ${date(String(item.planned_date))}` : "Data: a definir"}</small></div><div className="record-actions"><button className="icon-button" onClick={() => edit("opportunity_service_items", item)} aria-label="Editar item"><Pencil size={15}/></button><button className="icon-button delete-button" onClick={() => setConfirm({table:"opportunity_service_items",row:item})} aria-label="Excluir item"><Trash2 size={15}/></button></div></article>;
+            })}</div> : <p className="quiet-empty">Adicione os serviços ou planos negociados.</p>}
           </section>
         ) : relatedTab ? (
           <section>

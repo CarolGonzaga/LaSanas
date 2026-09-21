@@ -69,6 +69,10 @@ export const options: Record<string, Record<string, string>> = {
     custom: "Personalizada",
     loyalty: "Fidelização",
   },
+  contractItemKind: {
+    service: "Serviço avulso",
+    package: "Plano mensal",
+  },
   direction: {
     incoming: "Recebido",
     outgoing: "Enviado",
@@ -91,6 +95,7 @@ export const options: Record<string, Record<string, string>> = {
   plan: {
     full_upfront: "100% antecipado",
     half_and_half: "50% sinal + 50% entrega",
+    monthly_full: "Mensalidade integral",
   },
   paymentPlanAction: {
     keep: "Manter cobranças atuais",
@@ -514,6 +519,18 @@ export const modules: Module[] = [
         required: false,
       },
       {
+        name: "images_url",
+        label: "Link das imagens",
+        type: "url",
+        required: false,
+      },
+      {
+        name: "tropes",
+        label: "Tropes",
+        type: "text",
+        required: false,
+      },
+      {
         name: "cover_ai_status",
         label: "Origem da capa",
         type: "select",
@@ -561,9 +578,10 @@ export const modules: Module[] = [
     fields: [
       {
         name: "name",
-        label: "Identificação da negociação",
+        label: "Identificação (gerada pela autora e livro)",
         type: "text",
-        required: true,
+        required: false,
+        persist: false,
       },
       {
         name: "contact_type",
@@ -576,22 +594,15 @@ export const modules: Module[] = [
         name: "author_id",
         label: "Autora",
         type: "relation",
-        required: false,
+        required: true,
         source: "authors",
       },
       {
-        name: "publisher_id",
-        label: "Editora",
+        name: "book_id",
+        label: "Livro",
         type: "relation",
-        required: false,
-        source: "publishers",
-      },
-      {
-        name: "publisher_contact_id",
-        label: "Contato da editora",
-        type: "relation",
-        required: false,
-        source: "publisher_contacts",
+        required: true,
+        source: "books",
       },
       {
         name: "source_channel",
@@ -600,33 +611,7 @@ export const modules: Module[] = [
         required: true,
         source: "channel",
       },
-      {
-        name: "responsible_user_id",
-        label: "Responsável (automático pelo canal)",
-        type: "member",
-        required: false,
-      },
-      {
-        name: "media_kit_sent",
-        label: "Media kit enviado?",
-        type: "select",
-        required: true,
-        source: "mediaKitSent",
-        persist: false,
-      },
-      {
-        name: "media_kit_version_id",
-        label: "Qual media kit foi enviado?",
-        type: "relation",
-        required: false,
-        source: "media_kits",
-      },
-      {
-        name: "media_kit_sent_at",
-        label: "Data de envio",
-        type: "date",
-        required: false,
-      },
+      { name: "media_kit_notes", label: "Media kit", type: "textarea", required: false },
       {
         name: "status",
         label: "Etapa",
@@ -642,12 +627,6 @@ export const modules: Module[] = [
         source: "proposal",
       },
       {
-        name: "first_contact_at",
-        label: "Primeiro contato",
-        type: "datetime-local",
-        required: false,
-      },
-      {
         name: "ai_cover_policy_informed",
         label: "Política sobre IA informada",
         type: "checkbox",
@@ -661,12 +640,21 @@ export const modules: Module[] = [
       },
     ],
   },
-  { table: "opportunity_service_items", route: "itens-oportunidade", title: "Serviços da oportunidade", description: "Serviços avulsos negociados.", label: "id", fields: [
+  { table: "opportunity_service_items", route: "itens-oportunidade", title: "Serviços", description: "Itens negociados nesta oportunidade.", label: "id", fields: [
     { name: "opportunity_id", label: "Oportunidade", type: "relation", required: true, source: "opportunities" },
-    { name: "service_type_id", label: "Serviço", type: "relation", required: true, source: "service_types" },
+    { name: "item_kind", label: "Tipo", type: "select", required: true, source: "contractItemKind" },
+    { name: "service_type_id", label: "Serviço avulso", type: "relation", required: false, source: "service_types" },
+    { name: "service_package_id", label: "Plano mensal", type: "relation", required: false, source: "service_packages" },
     { name: "quantity", label: "Quantidade", type: "integer", required: true },
-    { name: "unit_price", label: "Valor unitário", type: "money", required: true },
+    { name: "unit_price", label: "Valor unitário / mensal", type: "money", required: true },
+    { name: "duration_months", label: "Meses do plano", type: "integer", required: false },
+    { name: "payment_terms", label: "Pagamento", type: "select", required: true, source: "plan" },
+    { name: "planned_date", label: "Data prevista", type: "date", required: false },
     { name: "notes", label: "Observações", type: "textarea", required: false },
+  ] },
+  { table: "campaign_contract_items", route: "itens-contratados", title: "Itens contratados", description: "Base comercial interna da campanha.", label: "description", fields: [
+    { name: "campaign_id", label: "Campanha", type: "relation", required: true, source: "campaigns" },
+    { name: "description", label: "Descrição", type: "text", required: false },
   ] },
   {
     table: "communication_logs",

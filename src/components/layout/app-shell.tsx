@@ -10,7 +10,6 @@ import {
   Feather,
   Building2,
   BookOpen,
-  Layers,
   CalendarDays,
   Wallet,
   CheckSquare,
@@ -42,9 +41,8 @@ const groups = [
   {
     label: "OPERAÇÃO",
     links: [
-      ["campanhas", "Clientes / Campanhas", Layers],
-      ["servicos-contratados", "Serviços", CheckSquare],
       ["agenda", "Agenda", CalendarDays],
+      ["tarefas", "Tarefas", CheckSquare],
       ["leitura-coletiva", "Leitura coletiva", BookOpen],
       ["clube-presencial", "Clube presencial", Users],
     ],
@@ -53,7 +51,6 @@ const groups = [
     label: "GESTÃO",
     links: [
       ["financeiro", "Financeiro", Wallet],
-      ["tarefas", "Tarefas", CheckSquare],
       ["respostas", "Respostas", MessageSquare],
       ["configuracoes", "Configurações", Settings],
     ],

@@ -1030,6 +1030,7 @@ input[type="checkbox"] {
   margin: 8px 0 12px;
   overflow-wrap: anywhere;
 }
+.opportunity-item-chips { display:flex; flex-wrap:wrap; gap:6px; margin:2px 0 10px; }
 .record-amount {
   font-size: 21px;
   letter-spacing: -0.5px;
