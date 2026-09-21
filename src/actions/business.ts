@@ -336,6 +336,33 @@ export async function saveRecord(
     }
     if (table === "books" && !values.release_year)
       values.release_year = String(new Date().getFullYear());
+    if (table === "books") {
+      const newPublisherName = z
+        .string()
+        .trim()
+        .max(1000)
+        .parse(mediaKitInput.new_publisher_name ?? "");
+      if (newPublisherName) {
+        const { data: existingPublisher, error: existingPublisherError } = await db
+          .from("publishers")
+          .select("id")
+          .eq("workspace_id", workspace.id)
+          .ilike("name", newPublisherName)
+          .is("archived_at", null)
+          .maybeSingle();
+        checked(existingPublisherError);
+        const { data: publisher, error: publisherError } = existingPublisher
+          ? { data: existingPublisher, error: null }
+          : await db
+              .from("publishers")
+              .insert({ workspace_id: workspace.id, name: newPublisherName })
+              .select("id")
+          .single();
+        checked(publisherError);
+        values.publisher_id = publisher?.id ?? null;
+      }
+      if (!id && !values.cover_ai_status) values.cover_ai_status = "unknown";
+    }
     if (
       table === "service_occurrences" &&
       values.schedule_status === "scheduled" &&

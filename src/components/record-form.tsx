@@ -211,7 +211,7 @@ function defaults(table: string, row?: Partial<Row>): Values {
                   : f.type === "datetime-local" && f.required
                     ? new Date().toISOString()
                     : "";
-      if (f.name === "year") value = Number(today().slice(0, 4));
+      if (["year", "release_year"].includes(f.name)) value = Number(today().slice(0, 4));
       if (f.name === "month") value = Number(today().slice(5, 7));
       if (f.name === "duration_months") value = 3;
     }

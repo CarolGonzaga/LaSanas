@@ -423,7 +423,7 @@ export const modules: Module[] = [
     table: "books",
     route: "livros",
     title: "Livros",
-    description: "Informações, capas e histórico de cada livro.",
+    description: "Informações essenciais, capa e links do livro.",
     label: "title",
     fields: [
       {
@@ -431,12 +431,6 @@ export const modules: Module[] = [
         label: "Título",
         type: "text",
         required: true,
-      },
-      {
-        name: "subtitle",
-        label: "Subtítulo",
-        type: "text",
-        required: false,
       },
       {
         name: "author_id",
@@ -453,16 +447,11 @@ export const modules: Module[] = [
         source: "publishers",
       },
       {
-        name: "isbn",
-        label: "ISBN",
+        name: "new_publisher_name",
+        label: "Nova editora (opcional)",
         type: "text",
         required: false,
-      },
-      {
-        name: "release_year",
-        label: "Lançamento",
-        type: "integer",
-        required: false,
+        persist: false,
       },
       {
         name: "synopsis",
@@ -471,45 +460,9 @@ export const modules: Module[] = [
         required: false,
       },
       {
-        name: "genres",
-        label: "Gêneros",
-        type: "text",
-        required: false,
-      },
-      {
-        name: "representations",
-        label: "Representatividades",
-        type: "text",
-        required: false,
-      },
-      {
-        name: "page_count",
-        label: "Páginas",
-        type: "integer",
-        required: false,
-      },
-      {
         name: "purchase_url",
         label: "Link de compra",
         type: "url",
-        required: false,
-      },
-      {
-        name: "publisher_url",
-        label: "Link da editora",
-        type: "url",
-        required: false,
-      },
-      {
-        name: "author_url",
-        label: "Link da autora",
-        type: "url",
-        required: false,
-      },
-      {
-        name: "author_instagram",
-        label: "Instagram da autora",
-        type: "text",
         required: false,
       },
       {
@@ -520,7 +473,7 @@ export const modules: Module[] = [
       },
       {
         name: "images_url",
-        label: "Link das imagens",
+        label: "Link de imagens / ilustrações",
         type: "url",
         required: false,
       },
@@ -531,40 +484,15 @@ export const modules: Module[] = [
         required: false,
       },
       {
-        name: "cover_ai_status",
-        label: "Origem da capa",
-        type: "select",
-        required: true,
-        source: "cover",
-      },
-      {
-        name: "ai_cover_policy_informed_at",
-        label: "Política informada em",
-        type: "datetime-local",
-        required: false,
-      },
-      {
-        name: "ai_cover_policy_acknowledged_at",
-        label: "Política aceita em",
-        type: "datetime-local",
-        required: false,
-      },
-      {
-        name: "cover_replacement_notes",
-        label: "Substituição da capa",
-        type: "textarea",
-        required: false,
-      },
-      {
         name: "additional_fields",
-        label: "Informações adicionais",
+        label: "Outros",
         type: "textarea",
         required: false,
       },
       {
-        name: "notes",
-        label: "Observações",
-        type: "textarea",
+        name: "release_year",
+        label: "Ano de lançamento",
+        type: "integer",
         required: false,
       },
     ],
