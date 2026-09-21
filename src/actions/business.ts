@@ -238,12 +238,6 @@ export async function saveRecord(
     const mediaKitInput = input as Record<string, unknown>;
     const registerMediaKitSend =
       table === "media_kits" && mediaKitInput.register_sent === true;
-    const paymentPlanAction =
-      table === "campaigns" && id
-        ? z
-            .enum(["keep", "rebuild_pending", "rebuild_all"])
-            .parse(mediaKitInput.payment_plan_action ?? "keep")
-        : "keep";
     const sentOpportunityId = registerMediaKitSend
       ? z.uuid().parse(mediaKitInput.sent_opportunity_id)
       : null;
@@ -281,42 +275,23 @@ export async function saveRecord(
       Object.values(publisherContact).some(Boolean)
     )
       throw new Error("Informe o nome do contato para salvar seus dados.");
-    const applyPendingAssignee =
-      table === "campaign_services" && mediaKitInput.apply_pending_assignee === true;
-    let previousPaymentPlan: string | null = null;
-    if (table === "campaigns" && id) {
-      const { data, error } = await db
-        .from("campaigns")
-        .select("payment_plan")
-        .eq("id", id)
-        .eq("workspace_id", workspace.id)
-        .single();
-      checked(error);
-      previousPaymentPlan = String(data?.payment_plan ?? "");
-    }
     if (table === "opportunities") {
-      const bookId = z.uuid().parse(values.book_id);
-      const { data: book, error: bookError } = await db
-        .from("books")
-        .select("title,author_id,publisher_id")
-        .eq("id", bookId)
-        .eq("workspace_id", workspace.id)
-        .single();
-      checked(bookError);
-      if (!book || book.author_id !== values.author_id)
-        throw new Error("O livro selecionado deve pertencer à autora.");
-      const { data: author, error: authorError } = await db
-        .from("authors")
-        .select("name")
-        .eq("id", values.author_id)
-        .eq("workspace_id", workspace.id)
-        .single();
-      checked(authorError);
-      values.name = `${String(author?.name ?? "Autora")} — ${String(book.title)}`;
-      values.publisher_id = book.publisher_id ?? null;
+      const kind = z.enum(["author", "publisher"]).parse(values.contact_type);
+      if (kind === "author") z.uuid().parse(values.author_id);
+      else z.uuid().parse(values.publisher_id);
+      if (values.book_id) {
+        const { data: book, error } = await db.from("books").select("title,author_id,publisher_id").eq("id", z.uuid().parse(values.book_id)).eq("workspace_id", workspace.id).single();
+        checked(error);
+        if (kind === "author" && book?.author_id !== values.author_id) throw new Error("O livro selecionado deve pertencer à autora.");
+        if (kind === "publisher" && book?.publisher_id !== values.publisher_id) throw new Error("O livro selecionado deve pertencer à editora.");
+        values.author_id = String(book?.author_id ?? "");
+        values.name = `${String((await db.from("authors").select("name").eq("id", book?.author_id).single()).data?.name ?? "Autora")} — ${String(book?.title ?? "Livro")}`;
+      } else {
+        values.name = kind === "author" ? "Oportunidade da autora" : "Oportunidade da editora";
+      }
       values.responsible_user_id = (await requireContext()).user.id;
     }
-    if (table === "opportunity_service_items") {
+    if (table === "opportunity_services") {
       const kind = z.enum(["service", "package"]).parse(values.item_kind);
       if (kind === "service") {
         z.uuid().parse(values.service_type_id);
@@ -374,10 +349,21 @@ export async function saveRecord(
       values.schedule_status === "to_confirm"
     )
       values.scheduled_date = null;
-    if (table === "campaigns" && !id && upload?.get("book_club_slot_id"))
-      values.book_club_slot_id = z
-        .uuid()
-        .parse(upload.get("book_club_slot_id"));
+    if (table === "payments" && values.status === "paid") {
+      if (!values.paid_at || !values.payment_method)
+        throw new Error("Informe a data e a forma de pagamento para confirmar o recebimento.");
+      if (id) {
+        const { error } = await db.rpc("confirm_payment", {
+          p_payment: id,
+          p_paid_at: values.paid_at,
+          p_method: values.payment_method,
+          p_custom: values.payment_method_custom || null,
+        });
+        checked(error);
+        refresh();
+        return { ok: true, id, message: "Pagamento confirmado e produção liberada quando aplicável." };
+      }
+    }
     const field = table === "books" ? "cover_storage_path" : "storage_path";
     const file = upload?.get("file");
     let previous: string | null = null;
@@ -406,7 +392,7 @@ export async function saveRecord(
           ? "books"
           : table === "media_kits"
             ? "media-kits"
-            : "campaigns/" + z.uuid().parse(values.campaign_id);
+            : "assets";
       uploaded =
         workspace.id +
         "/" +
@@ -461,25 +447,6 @@ export async function saveRecord(
         preferred_contact_channel: publisherContact.contact_preferred_channel,
       });
       checked(contactError);
-    }
-    if (table === "campaign_services" && id && applyPendingAssignee) {
-      const { error: assignmentError } = await db
-        .from("service_occurrences")
-        .update({ assigned_to: values.assigned_to ?? null })
-        .eq("campaign_service_id", id)
-        .eq("workspace_id", workspace.id)
-        .not("status", "in", '(completed,cancelled)');
-      checked(assignmentError);
-    }
-    if (table === "campaigns" && id && previousPaymentPlan !== values.payment_plan && paymentPlanAction !== "keep") {
-      const { error: paymentError } = await db.rpc(
-        "rebuild_campaign_payments",
-        {
-          p_campaign: id,
-          p_mode: paymentPlanAction,
-        },
-      );
-      checked(paymentError);
     }
     if (registerMediaKitSend && sentOpportunityId && sentChannel) {
       const mediaKitId = z.uuid().parse(data?.id);
@@ -536,12 +503,6 @@ export async function saveWorkspaceSettings(input: unknown): Promise<Result> {
     const { error: workspaceError } = await db.from("workspaces").update({ default_production_user_id: values.defaultProductionUserId }).eq("id", workspace.id);
     checked(workspaceError);
     if (values.defaultProductionUserId) {
-      const { error: serviceError } = await db
-        .from("campaign_services")
-        .update({ assigned_to: values.defaultProductionUserId })
-        .eq("workspace_id", workspace.id)
-        .is("assigned_to", null);
-      checked(serviceError);
       const { error: occurrenceError } = await db
         .from("service_occurrences")
         .update({ assigned_to: values.defaultProductionUserId })
@@ -613,17 +574,9 @@ export async function removeRecord(table: string, id: string): Promise<Result> {
     if (!moduleByTable(table)) throw new Error("Tipo inválido.");
     z.uuid().parse(id);
     const { db, workspace } = await requireContext();
-    if (table === "campaign_services") {
-      const { error } = await db.rpc("delete_campaign_service", {
-        p_service: id,
-      });
-      checked(error);
-      refresh();
-      return { ok: true, message: "Serviço e execuções associadas removidos." };
-    }
     if (["authors", "publishers"].includes(table)) {
       const relationField = table === "authors" ? "author_id" : "publisher_id";
-      const dependentTables = ["books", "opportunities", "campaigns"];
+      const dependentTables = ["books", "opportunities"];
       const checks = await Promise.all(
         dependentTables.map(async (dependentTable) => {
           const { count, error } = await db
@@ -636,7 +589,7 @@ export async function removeRecord(table: string, id: string): Promise<Result> {
         }),
       );
       if (checks.some(Boolean))
-        throw new Error("Não é possível excluir enquanto houver livros, oportunidades ou campanhas vinculadas. Arquive o cadastro ou remova os vínculos primeiro.");
+        throw new Error("Não é possível excluir enquanto houver livros ou oportunidades vinculadas. Arquive o cadastro ou remova os vínculos primeiro.");
       if (table === "publishers") {
         const { error } = await db
           .from("publisher_contacts")
@@ -647,15 +600,7 @@ export async function removeRecord(table: string, id: string): Promise<Result> {
       }
     }
     if (table === "opportunities") {
-      const { count, error: campaignError } = await db
-        .from("campaigns")
-        .select("id", { count: "exact", head: true })
-        .eq("workspace_id", workspace.id)
-        .eq("opportunity_id", id);
-      checked(campaignError);
-      if (count)
-        throw new Error("Não é possível excluir uma oportunidade já convertida em campanha. Exclua a campanha primeiro ou arquive a oportunidade.");
-      for (const dependentTable of ["communication_logs", "opportunity_service_items"]) {
+      for (const dependentTable of ["communication_logs", "opportunity_services"]) {
         const { error } = await db.from(dependentTable).delete().eq("workspace_id", workspace.id).eq("opportunity_id", id);
         checked(error);
       }
@@ -712,15 +657,6 @@ export async function businessAction(
           .parse(args.quantity),
       });
       checked(error);
-    } else if (action === "approve-opportunity") {
-      const { error } = await db.rpc("approve_opportunity", { p_opportunity: id });
-      checked(error);
-    } else if (action === "delete-campaign") {
-      const { error } = await db.rpc("delete_campaign", {
-        p_campaign: id,
-        p_return_opportunity: args.returnOpportunity === "true",
-      });
-      checked(error);
     } else if (action === "kit") {
       const { error } = await db.rpc("mark_media_kit", {
         p_opportunity: id,
@@ -763,7 +699,6 @@ export async function businessAction(
           "authors",
           "publishers",
           "books",
-          "campaigns",
           "opportunities",
         ].includes(args.table)
       )
@@ -773,13 +708,6 @@ export async function businessAction(
         .update({
           archived_at: args.undo === "true" ? null : new Date().toISOString(),
         })
-        .eq("id", id)
-        .eq("workspace_id", workspace.id);
-      checked(error);
-    } else if (action === "production") {
-      const { error } = await db
-        .from("campaigns")
-        .update({ status: "active" })
         .eq("id", id)
         .eq("workspace_id", workspace.id);
       checked(error);

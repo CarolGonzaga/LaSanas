@@ -320,8 +320,8 @@ export function RecordForm({
       .map((item) => item.id);
     const duration = Number(pack.duration_months || 1);
     const monthly = Number(pack.package_price || 0);
-    const durationField = table === "opportunity_service_items" ? "duration_months" : "contract_duration_months";
-    const priceField = table === "opportunity_service_items" ? "unit_price" : "monthly_value";
+    const durationField = table === "opportunity_services" ? "duration_months" : "contract_duration_months";
+    const priceField = table === "opportunity_services" ? "unit_price" : "monthly_value";
     setValue(durationField, String(duration), {
       shouldDirty: true,
       shouldValidate: true,
@@ -330,7 +330,7 @@ export function RecordForm({
       shouldDirty: true,
       shouldValidate: true,
     });
-    if (table !== "opportunity_service_items") setValue("selected_package_item_ids", initiallySelected, { shouldDirty: true, shouldValidate: true });
+    if (table === "opportunity_services") setValue("selected_package_item_ids", initiallySelected, { shouldDirty: true, shouldValidate: true });
     const totalField =
       table === "opportunities" ? "estimated_value" : "total_value";
     setValue(totalField, String(monthly * duration), {
@@ -367,13 +367,6 @@ export function RecordForm({
       );
     }
   }
-  useEffect(() => {
-    if (table === "campaign_services" && !row?.id && !values.assigned_to) {
-      const defaultAssignee =
-        data.workspace_settings?.[0]?.default_production_user_id;
-      if (defaultAssignee) setValue("assigned_to", String(defaultAssignee));
-    }
-  }, [data.workspace_settings, row?.id, setValue, table, values.assigned_to]);
   function close() {
     if (isDirty || file) setDiscard(true);
     else onClose();
@@ -580,9 +573,11 @@ export function RecordForm({
                 values.media_kit_sent !== "yes"
               )
                 return null;
-              if (table === "opportunity_service_items" && f.name === "service_type_id" && values.item_kind !== "service") return null;
-              if (table === "opportunity_service_items" && ["service_package_id", "duration_months"].includes(f.name) && values.item_kind !== "package") return null;
-              if (table === "opportunity_service_items" && f.name === "payment_terms" && values.item_kind === "package") return null;
+              if (table === "opportunities" && f.name === "author_id" && values.contact_type === "publisher") return null;
+              if (table === "opportunities" && f.name === "publisher_id" && values.contact_type === "author") return null;
+              if (table === "opportunity_services" && f.name === "service_type_id" && values.item_kind !== "service") return null;
+              if (table === "opportunity_services" && ["service_package_id", "duration_months", "selected_package_item_ids"].includes(f.name) && values.item_kind !== "package") return null;
+              if (table === "opportunity_services" && f.name === "payment_terms" && values.item_kind === "package") return null;
               const immutable = false;
               let choices =
                 f.type === "member"
@@ -594,10 +589,12 @@ export function RecordForm({
                 choices = choices.filter(
                   (p) => p.publisher_id === values.publisher_id,
                 );
-              if (f.name === "book_id" && values.author_id)
+              if (f.name === "book_id" && values.author_id && values.contact_type !== "publisher")
                 choices = choices.filter(
                   (p) => p.author_id === values.author_id,
                 );
+              if (f.name === "book_id" && values.contact_type === "publisher" && values.publisher_id)
+                choices = choices.filter((p) => p.publisher_id === values.publisher_id);
               if (
                 table === "communication_logs" &&
                 f.name === "opportunity_id" &&

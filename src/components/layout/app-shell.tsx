@@ -78,6 +78,9 @@ export function AppShell({
     [searchOpen, setSearchOpen] = useState(false),
     [query, setQuery] = useState("");
   const prefix = preview ? "/preview" : "";
+  const navigationGroups = homeView === "production"
+    ? [{ label: "PRINCIPAL", links: [["dashboard", "Meu dia", LayoutDashboard]] }] as const
+    : groups;
   const currentProfile = data.profiles?.find((profile) => profile.id === userId);
   const avatarUrl = String(currentProfile?.avatar_preview_url ?? currentProfile?.avatar_url ?? "");
   const avatarInitial = (currentProfile ? memberLabel(currentProfile) : email || "L")
@@ -135,7 +138,7 @@ export function AppShell({
         </div>
       )}
       <nav>
-        {groups.map((group) => (
+        {navigationGroups.map((group) => (
           <div className="nav-group" key={group.label}>
             {group.label && <p>{group.label}</p>}
             {group.links.map(([route, label, Icon]) => (

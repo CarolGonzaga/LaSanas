@@ -34,8 +34,10 @@ export async function getContext() {
       ? {
           id: String(membership.workspace_id),
           role: String(membership.role),
-          homeView: String(membership.home_view ?? "management"),
           defaultProductionUserId: (membership.workspaces as unknown as { default_production_user_id?: string | null })?.default_production_user_id ?? null,
+          // A home é uma regra do workspace, não uma decisão baseada em e-mail
+          // nem uma preferência isolada de cada componente.
+          homeView: (membership.workspaces as unknown as { default_production_user_id?: string | null })?.default_production_user_id === user.id ? "production" : "management",
           name: String(
             (membership.workspaces as unknown as { name: string })?.name ??
               "Meu negócio",
