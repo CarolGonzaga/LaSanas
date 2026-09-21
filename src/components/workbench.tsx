@@ -251,28 +251,6 @@ export function Workbench({
     link.click();
     URL.revokeObjectURL(url);
   }
-  function convert(row: Row, table: string) {
-    const book = data.books?.find((item) => item.id === row.book_id);
-    edit("campaigns", {
-      name:
-        table === "opportunities"
-          ? String(row.name)
-          : "Clube presencial • " +
-            options.month[String(row.month)] +
-            " " +
-            row.year,
-      opportunity_id: table === "opportunities" ? row.id : null,
-      book_club_slot_id: table === "book_club_slots" ? row.id : null,
-      author_id: table === "opportunities" ? row.author_id ?? null : row.author_id ?? book?.author_id ?? null,
-      publisher_id: table === "opportunities" ? row.publisher_id ?? null : row.publisher_id ?? book?.publisher_id ?? null,
-      book_id: table === "opportunities" ? row.book_id ?? null : row.book_id,
-      responsible_user_id: row.responsible_user_id,
-      proposal_type: row.proposal_type ?? "media_kit",
-      campaign_type: table === "book_club_slots" ? "book_club" : "advertising",
-      total_value: 0,
-      status: "awaiting_payment",
-    });
-  }
   async function announceMonth(row: Row | undefined, month: number) {
     if (row) {
       setOperation({ action: "announcement", row });
@@ -439,20 +417,13 @@ export function Workbench({
             Excluir campanha
           </button>
         )}
-        {table === "book_club_slots" && row.book_id && !row.campaign_id && (
-          <button className="small-button" onClick={() => convert(row, table)}>
-            Criar campanha
-          </button>
-        )}
-        {table === "book_club_slots" && row.publisher_id && (
+        {table === "book_club_slots" && row.publisher_contact_id && (
           <button
             className="small-button"
             onClick={() =>
               edit("communication_logs", {
-                publisher_id: row.publisher_id,
                 publisher_contact_id: row.publisher_contact_id,
                 responsible_user_id: userId,
-                campaign_id: row.campaign_id,
                 channel: "email",
                 summary:
                   "Clube presencial • " +

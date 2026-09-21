@@ -153,9 +153,8 @@ export const options: Record<string, Record<string, string>> = {
   club: {
     planning: "Planejamento",
     book_selected: "Livro escolhido",
-    publisher_contact_pending: "Contatar editora",
-    publisher_contacted: "Editora contatada",
-    negotiating: "Negociação",
+    contact_pending: "Contato pendente",
+    contacted: "Contato realizado",
     confirmed: "Confirmado",
     completed: "Concluído",
     cancelled: "Cancelado",
@@ -1069,13 +1068,6 @@ export const modules: Module[] = [
         type: "relation",
         required: false,
         source: "books",
-      },
-      {
-        name: "publisher_id",
-        label: "Editora (preenchida pelo livro)",
-        type: "relation",
-        required: false,
-        source: "publishers",
       },
       {
         name: "publisher_contact_id",
