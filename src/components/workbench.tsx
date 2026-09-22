@@ -607,6 +607,15 @@ export function Workbench({
                       ]
                         .filter(Boolean)
                         .join(" · ")
+                    : table === "client_assets" &&
+                        className === "author-material-list"
+                      ? [
+                          row.author_id ? display(m, row, "author_id") : "",
+                          row.book_id ? display(m, row, "book_id") : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") ||
+                        String(row.description ?? "")
                     : ref.map((f) => display(m, row, f.name)).join(" · ") ||
                       String(
                         row.email ?? row.description ?? row.category ?? "",
@@ -1120,8 +1129,12 @@ export function Workbench({
               relatedTab.table,
               relatedTab.rows,
               true,
-              m.table === "authors" && relatedTab.table === "books"
-                ? "author-book-list"
+              m.table === "authors"
+                ? relatedTab.table === "books"
+                  ? "author-book-list"
+                  : relatedTab.table === "client_assets"
+                    ? "author-material-list"
+                    : ""
                 : "",
             )}
           </section>
