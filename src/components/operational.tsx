@@ -547,10 +547,12 @@ export function ProductionDashboard({
   data,
   userId,
   onStatus,
+  completedOnly = false,
 }: {
   data: Dataset;
   userId: string;
   onStatus: (id: string, source: "tasks" | "service_occurrences", status: string) => Promise<boolean>;
+  completedOnly?: boolean;
 }) {
   const now = today();
   const [selected, setSelected] = useState<WorkItem | null>(null);
@@ -565,6 +567,16 @@ export function ProductionDashboard({
     ["completed", "Concluído", "Finalizados"],
     ["cancelled", "Cancelado", "Não serão executados"],
   ] as const;
+  const allProductionItems = buildWorkItems(data).filter((item) =>
+    item.source === "service_occurrences" && item.released && item.assignedTo === userId,
+  );
+  const terminal = (item: WorkItem) => ["completed", "cancelled"].includes(item.status);
+  const terminalBookKeys = new Set(
+    Array.from(new Set(allProductionItems.map((item) => item.bookId || item.opportunityServiceId))).filter((key) => {
+      const entries = allProductionItems.filter((item) => (item.bookId || item.opportunityServiceId) === key);
+      return entries.length > 0 && entries.every(terminal);
+    }),
+  );
   const currentItems = buildWorkItems(data).filter((item) => {
     if (item.source === "service_occurrences" && !item.released) return false;
     if (item.assignedTo !== userId) return false;
@@ -572,7 +584,7 @@ export function ProductionDashboard({
     const openDue = !["completed", "cancelled"].includes(item.status) && !!item.dueDate && item.dueDate <= now;
     if (!completedToday && !openDue) return false;
     if (item.source === "tasks") return true;
-    return item.released || completedToday;
+    return (item.released || completedToday) && !terminalBookKeys.has(item.bookId || item.opportunityServiceId);
   });
   const futureItems = buildWorkItems(data).filter((item) => {
     if (
@@ -587,10 +599,14 @@ export function ProductionDashboard({
       return false;
     return true;
   });
-  const items = boardView === "future" ? futureItems : currentItems;
+  const items = completedOnly
+    ? allProductionItems.filter((item) => terminalBookKeys.has(item.bookId || item.opportunityServiceId))
+    : boardView === "future" ? futureItems : currentItems;
   const itemStatus = (item: WorkItem) => statusOverrides[item.id] ?? item.status;
   const open = items.filter((item) => !["completed", "cancelled"].includes(itemStatus(item)));
-  const dueSummary = boardView === "future"
+  const dueSummary = completedOnly
+    ? [["Livros finalizados", terminalBookKeys.size], ["Execuções", items.length]] as const
+    : boardView === "future"
     ? [["Programados", open.length], ["Produção liberada", open.filter((item) => item.released).length]] as const
     : [["Atrasados", open.filter((item) => item.dueDate < now).length], ["Hoje", open.filter((item) => item.dueDate === now).length]] as const;
   const dueLabel = (item: WorkItem) => boardView === "future" ? "Agendado" : item.dueDate < now ? "Atrasado" : item.dueDate === now ? "Para hoje" : "Concluído hoje";
@@ -613,16 +629,26 @@ export function ProductionDashboard({
     const total = Number(service?.unit_price ?? 0) * Number(service?.item_kind === "package" ? service?.duration_months ?? 1 : service?.quantity ?? 1);
     return { service, opportunity, book, author, publisher, paid: payments.reduce((sum, item) => sum + Number(item.amount), 0), total };
   })();
+  const bookGroups = Array.from(new Map(items.map((item) => {
+    const internalTask = item.source === "tasks";
+    const key = internalTask ? "internal-tasks" : item.bookId || item.opportunityServiceId;
+    const current = { key, title: internalTask ? "Tarefas internas" : item.bookTitle || "Livro não informado", author: internalTask ? "Organização da equipe" : item.authorName || "Autora não informada", items: [] as WorkItem[] };
+    return [key, current] as const;
+  })).values()).map((group) => ({
+    ...group,
+    items: items.filter((item) => (item.source === "tasks" ? "internal-tasks" : item.bookId || item.opportunityServiceId) === group.key),
+  }));
   return (
     <>
-      <div className="page-header production-header"><div><span className="eyebrow">Meu dia</span><h1>Quadro de produção</h1><p>{boardView === "future" ? "Planejamento de projetos futuros com data e cobrança iniciada." : "Serviços ativos e tarefas internas atribuídos a você: hoje, atrasados e concluídos hoje."}</p></div><div className="production-summary">{dueSummary.map(([label, count]) => <div key={label}><strong>{count}</strong><span>{label}</span></div>)}</div></div>
-      <div className="tabs production-tabs"><button className={boardView === "today" ? "selected" : ""} onClick={() => setBoardView("today")}>Meu dia</button><button className={boardView === "future" ? "selected" : ""} onClick={() => setBoardView("future")}>Projetos futuros <span>{futureItems.length}</span></button></div>
-      <p className="board-instructions"><GripVertical size={15} aria-hidden="true" /> Arraste um card entre as colunas para atualizar o status. Em telas touch, use o seletor no card.</p>
-      <section className="production-board" aria-label="Quadro de serviços por status">
+      <div className="page-header production-header"><div><span className="eyebrow">{completedOnly ? "Histórico de produção" : "Meu dia"}</span><h1>{completedOnly ? "Finalizados" : "Quadro de produção"}</h1><p>{completedOnly ? "Livros cujas execuções já foram concluídas ou canceladas." : boardView === "future" ? "Planejamento de projetos futuros com data e cobrança iniciada." : "Serviços ativos e tarefas internas atribuídos a você: hoje, atrasados e concluídos hoje."}</p></div><div className="production-summary">{dueSummary.map(([label, count]) => <div key={label}><strong>{count}</strong><span>{label}</span></div>)}</div></div>
+      {!completedOnly && <div className="tabs production-tabs"><button className={boardView === "today" ? "selected" : ""} onClick={() => setBoardView("today")}>Meu dia</button><button className={boardView === "future" ? "selected" : ""} onClick={() => setBoardView("future")}>Projetos futuros <span>{futureItems.length}</span></button></div>}
+      {!completedOnly && <p className="board-instructions"><GripVertical size={15} aria-hidden="true" /> Arraste um card entre as colunas para atualizar o status. Em telas touch, use o seletor no card.</p>}
+      <section className="production-book-groups" aria-label="Execuções agrupadas por livro">
+        {bookGroups.map((group) => <details className="production-book-group" key={group.key} open><summary><span><strong>{group.title}</strong><small>{group.author}</small></span><b>{group.items.length}{group.items.length === 1 ? " execução" : " execuções"}</b></summary><section className="production-board">
         {boardColumns.map(([status, label, description]) => {
-          const rows = items.filter((item) => itemStatus(item) === status);
+          const rows = group.items.filter((item) => itemStatus(item) === status);
           return <section className={`production-column production-column-${status}`} key={status} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const item = items.find((current) => current.id === draggedId); if (item) void moveItem(item, status); setDraggedId(null); }}><header><div><h2>{label}<small>{rows.length}</small></h2><p>{description}</p></div></header><div className="production-dropzone">{rows.length ? rows.map((item) => <article className={`work-card ${draggedId === item.id ? "is-dragging" : ""}`} key={item.id} draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", item.id); setDraggedId(item.id); }} onDragEnd={() => setDraggedId(null)} onClick={() => { setDetailTab("service"); setSelected(item); }}><div className="work-card-top"><button className="work-complete" aria-label={`Concluir ${item.title}`} disabled={itemStatus(item) === "completed"} onClick={(event) => { event.stopPropagation(); void moveItem(item, "completed"); }}>✓</button><span className={`due-chip due-${dueLabel(item).toLowerCase().replaceAll(" ", "-")}`}>{dueLabel(item)}</span><GripVertical className="work-drag-handle" size={16} aria-hidden="true" /></div><strong>{item.title}</strong><small>{item.source === "tasks" ? "Tarefa interna" : `${item.bookTitle || "Livro não informado"} · ${item.authorName || "Autora não informada"}`}</small>{item.source === "service_occurrences" && <span className="work-payment">{options.plan[item.paymentPlan] ?? "Pagamento"}{item.paymentMethod ? ` · ${options.method[item.paymentMethod] ?? item.paymentMethod}` : " · aguardando confirmação"}</span>}<p className="work-delivery">ENTREGA · {date(item.dueDate)}{item.dueTime ? ` · ${item.dueTime.slice(0, 5)}` : ""}</p><select aria-label={`Status de ${item.title}`} value={itemStatus(item)} onClick={(event) => event.stopPropagation()} onChange={(event) => void moveItem(item, event.target.value)}><option value="pending">Pendente</option><option value="in_progress">Em andamento</option><option value="in_revision">Em alteração</option><option value="completed">Concluído</option><option value="cancelled">Cancelado</option></select></article>) : <div className="production-empty">Arraste serviços para cá.</div>}</div></section>;
-        })}
+        })}</section></details>)}
       </section>
       <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}><DialogContent title={selected?.title ?? "Serviço"} description="Informações necessárias para realizar esta execução.">{details && <><div className="tabs dialog-tabs"><button className={detailTab === "service" ? "selected" : ""} onClick={() => setDetailTab("service")}>Serviço</button><button className={detailTab === "book" ? "selected" : ""} onClick={() => setDetailTab("book")}>Livro</button></div>{detailTab === "service" ? <dl className="detail-grid"><div><dt>Data</dt><dd>{selected && date(selected.dueDate)}</dd></div><div><dt>Status</dt><dd>{selected && options.occurrence[itemStatus(selected)]}</dd></div><div><dt>Autora / editora</dt><dd>{String(details.author?.name ?? details.publisher?.name ?? "—")}</dd></div><div><dt>Livro</dt><dd>{String(details.book?.title ?? "Livro não informado")}</dd></div><div><dt>Valor contratado</dt><dd>{money(details.total)}</dd></div><div><dt>Valor pago</dt><dd>{money(details.paid)}</dd></div><div className="full"><dt>O que precisa ser feito</dt><dd>{String(details.service?.notes ?? "Sem instruções adicionais.")}</dd></div></dl> : <dl className="detail-grid"><div><dt>Título</dt><dd>{String(details.book?.title ?? "Livro não informado")}</dd></div><div><dt>Autora</dt><dd>{String(details.author?.name ?? "Autora não informada")}</dd></div><div><dt>Editora</dt><dd>{String(details.publisher?.name ?? "Sem editora")}</dd></div><div><dt>Ano de lançamento</dt><dd>{String(details.book?.release_year ?? "—")}</dd></div><div className="full"><dt>Sinopse</dt><dd>{String(details.book?.synopsis ?? "Não informada.")}</dd></div><div><dt>Tropes</dt><dd>{String(details.book?.tropes ?? "Não informados.")}</dd></div><div><dt>Link de compra</dt><dd>{details.book?.purchase_url ? <a href={String(details.book.purchase_url)} target="_blank" rel="noreferrer">Abrir link</a> : "Não informado"}</dd></div><div><dt>Link da capa</dt><dd>{details.book?.cover_external_url ? <a href={String(details.book.cover_external_url)} target="_blank" rel="noreferrer">Abrir capa</a> : "Não informado"}</dd></div><div><dt>Imagens / ilustrações</dt><dd>{details.book?.images_url ? <a href={String(details.book.images_url)} target="_blank" rel="noreferrer">Abrir imagens</a> : "Não informado"}</dd></div><div className="full"><dt>Outros</dt><dd>{String(details.book?.additional_fields ?? "—")}</dd></div></dl>}</>}<div className="dialog-actions"><button className="button secondary" onClick={() => setSelected(null)}>Fechar</button></div></DialogContent></Dialog>
     </>

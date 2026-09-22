@@ -2391,6 +2391,15 @@ input[type="checkbox"] {
 .due-chip.due-próximo { background: #242f46; color: #9ec6ff; }
 .due-chip.due-agendado { background: #242f46; color: #9ec6ff; }
 .production-tabs { margin: -8px 0 12px; }
+.production-book-groups { display: grid; gap: 18px; }
+.production-book-group { border: 1px solid var(--border); border-radius: 16px; background: var(--panel); overflow: hidden; }
+.production-book-group summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; }
+.production-book-group summary::-webkit-details-marker { display: none; }
+.production-book-group summary span { display: grid; gap: 3px; }
+.production-book-group summary strong { font-size: 16px; }
+.production-book-group summary small { color: var(--muted); }
+.production-book-group summary b { color: var(--muted); font-size: 13px; font-weight: 600; }
+.production-book-group .production-board { padding: 0 14px 14px; }
 .work-drag-handle {
   margin-left: auto;
   color: var(--muted);

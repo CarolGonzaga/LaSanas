@@ -1503,6 +1503,8 @@ export function Workbench({
           }
         />
       );
+  else if (route === "finalizados")
+    content = <ProductionDashboard data={data} userId={userId} onStatus={updateProductionStatus} completedOnly />;
   else if (route === "agenda")
     content = <UnifiedAgenda data={data} edit={edit} />;
   else if (route === "servicos-contratados")

@@ -13,6 +13,7 @@ import {
   CalendarDays,
   Wallet,
   CheckSquare,
+  CheckCircle2,
   MessageSquare,
   Settings,
   LogOut,
@@ -79,7 +80,7 @@ export function AppShell({
     [query, setQuery] = useState("");
   const prefix = preview ? "/preview" : "";
   const navigationGroups = homeView === "production"
-    ? [{ label: "PRINCIPAL", links: [["dashboard", "Meu dia", LayoutDashboard]] }] as const
+    ? [{ label: "PRINCIPAL", links: [["dashboard", "Meu dia", LayoutDashboard], ["finalizados", "Finalizados", CheckCircle2]] }] as const
     : groups;
   const currentProfile = data.profiles?.find((profile) => profile.id === userId);
   const avatarUrl = String(currentProfile?.avatar_preview_url ?? currentProfile?.avatar_url ?? "");
