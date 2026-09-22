@@ -353,6 +353,17 @@ export async function saveRecord(
       if (!values.paid_at || !values.payment_method)
         throw new Error("Informe a data e a forma de pagamento para confirmar o recebimento.");
       if (id) {
+        const { error: paymentUpdateError } = await db
+          .from("payments")
+          .update({
+            description: values.description,
+            amount: values.amount,
+            due_date: values.due_date,
+            notes: values.notes,
+          })
+          .eq("id", id)
+          .eq("workspace_id", workspace.id);
+        checked(paymentUpdateError);
         const { error } = await db.rpc("confirm_payment", {
           p_payment: id,
           p_paid_at: values.paid_at,

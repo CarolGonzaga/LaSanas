@@ -23,6 +23,8 @@ try {
  assert.equal((await sql("select sum(amount)::text as total from payments where opportunity_service_id=$1",[service.id]))[0].total,"101.00");
  await sql("update payments set status='paid',paid_at=now(),payment_method='pix' where opportunity_service_id=$1 and installment_number=1",[service.id]);
  assert.equal((await sql("select count(*)::int as count from service_occurrences where opportunity_service_id=$1 and released_at is not null and assigned_to=$2",[service.id,production]))[0].count,1);
+ await sql("update payments set status='paid',paid_at=now(),payment_method='pix' where opportunity_service_id=$1 and installment_number=2",[service.id]);
+ assert.equal((await sql("select sum(amount)::text as total from payments where opportunity_service_id=$1 and status='paid'",[service.id]))[0].total,"101.00");
  const [planService]=await sql("insert into opportunity_services(workspace_id,opportunity_id,item_kind,service_package_id,quantity,unit_price,duration_months,payment_terms) values($1,$2,'package',$3,1,190,3,'monthly_full') returning id",[admin,opp.id,packageRow.id]);
  assert.equal((await sql("select count(*)::int as count from payments where opportunity_service_id=$1",[planService.id]))[0].count,3);
  await sql("update payments set status='paid',paid_at=now(),payment_method='pix' where opportunity_service_id=$1 and billing_cycle=1",[planService.id]);
