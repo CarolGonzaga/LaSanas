@@ -2,7 +2,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -81,7 +81,7 @@ export function AppShell({
   const prefix = preview ? "/preview" : "";
   const navigationGroups =
     homeView === "production"
-      ? [
+      ? ([
           {
             label: "PRINCIPAL",
             links: [
@@ -90,22 +90,34 @@ export function AppShell({
               ["configuracoes", "Configurações", Settings],
             ],
           },
-        ] as const
+        ] as const)
       : groups;
-  const currentProfile = data.profiles?.find((profile) => profile.id === userId);
-  const avatarUrl = String(currentProfile?.avatar_preview_url ?? currentProfile?.avatar_url ?? "");
-  const avatarInitial = (currentProfile ? memberLabel(currentProfile) : email || "L")
+  const currentProfile = data.profiles?.find(
+    (profile) => profile.id === userId,
+  );
+  const avatarUrl = String(
+    currentProfile?.avatar_preview_url ?? currentProfile?.avatar_url ?? "",
+  );
+  const avatarInitial = (
+    currentProfile ? memberLabel(currentProfile) : email || "L"
+  )
     .slice(0, 1)
     .toUpperCase();
-  const results = primaryModules
-    .flatMap((table) =>
-      (data[table] ?? [])
-        .filter((r) =>
-          JSON.stringify(r).toLowerCase().includes(query.toLowerCase()),
-        )
-        .map((row) => ({ table, row })),
-    )
-    .slice(0, 30);
+  const results = useMemo(
+    () =>
+      searchOpen
+        ? primaryModules
+            .flatMap((table) =>
+              (data[table] ?? [])
+                .filter((r) =>
+                  JSON.stringify(r).toLowerCase().includes(query.toLowerCase()),
+                )
+                .map((row) => ({ table, row })),
+            )
+            .slice(0, 30)
+        : [],
+    [data, query, searchOpen],
+  );
   async function logout() {
     const { error } = await createClient().auth.signOut();
     if (error) {
@@ -167,18 +179,31 @@ export function AppShell({
                 onClick={() => setOpen(false)}
               >
                 <Icon size={17} />
-                <span>{route === "dashboard" && homeView === "production" ? "Meu dia" : label}</span>
+                <span>
+                  {route === "dashboard" && homeView === "production"
+                    ? "Meu dia"
+                    : label}
+                </span>
               </Link>
             ))}
           </div>
         ))}
       </nav>
       <div className="sidebar-bottom">
-        <span className={"avatar" + (avatarUrl ? " has-image" : "")} style={avatarUrl ? { backgroundImage: `url("${avatarUrl}")` } : undefined}>
+        <span
+          className={"avatar" + (avatarUrl ? " has-image" : "")}
+          style={
+            avatarUrl ? { backgroundImage: `url("${avatarUrl}")` } : undefined
+          }
+        >
           {!avatarUrl && avatarInitial}
         </span>
         <div>
-          <strong>{currentProfile ? memberLabel(currentProfile) : email?.split("@")[0] || "Prévia local"}</strong>
+          <strong>
+            {currentProfile
+              ? memberLabel(currentProfile)
+              : email?.split("@")[0] || "Prévia local"}
+          </strong>
           <small>{preview ? "Modo de demonstração" : email}</small>
         </div>
         {!preview && (
@@ -209,7 +234,9 @@ export function AppShell({
           <div className="breadcrumb">
             <strong>
               {path.includes("dashboard") || path === "/preview"
-                ? homeView === "production" ? "Meu dia" : "Visão geral"
+                ? homeView === "production"
+                  ? "Meu dia"
+                  : "Visão geral"
                 : (modules.find((m) => path.includes("/" + m.route))?.title ??
                   "Configurações")}
             </strong>
@@ -224,7 +251,16 @@ export function AppShell({
               <span>Buscar no workspace</span>
             </button>
             <ThemeToggle />
-            <span className={"avatar small-avatar" + (avatarUrl ? " has-image" : "")} style={avatarUrl ? { backgroundImage: `url("${avatarUrl}")` } : undefined}>
+            <span
+              className={
+                "avatar small-avatar" + (avatarUrl ? " has-image" : "")
+              }
+              style={
+                avatarUrl
+                  ? { backgroundImage: `url("${avatarUrl}")` }
+                  : undefined
+              }
+            >
               {!avatarUrl && avatarInitial}
             </span>
           </div>

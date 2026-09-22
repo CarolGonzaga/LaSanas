@@ -1,14 +1,9 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import { getContext } from "@/lib/workspace";
 export default async function PrivateLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const db = await createClient();
-  const {
-    data: { user },
-  } = await db.auth.getUser();
-  if (!user) redirect("/login");
+  await getContext();
   return children;
 }
