@@ -17,6 +17,7 @@ import {
 } from "@/lib/modules";
 import type { Dataset } from "@/lib/workspace";
 import { today } from "@/lib/format";
+import { opportunityServiceLabel } from "@/lib/opportunity-service-presentation";
 
 type Values = Record<string, string | boolean | string[]>;
 function RelationCombobox({
@@ -982,6 +983,8 @@ export function RecordForm({
                               <option key={c.id} value={c.id}>
                                 {f.type === "member"
                                   ? memberLabel(c)
+                                : f.source === "opportunity_services"
+                                  ? opportunityServiceLabel(c, data)
                                   : labelOf(c, f.source!)}
                               </option>
                             ))}

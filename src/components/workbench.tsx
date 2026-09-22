@@ -37,6 +37,7 @@ import {
 } from "@/lib/modules";
 import type { Dataset } from "@/lib/workspace";
 import { date, money, today } from "@/lib/format";
+import { opportunityServiceContext, opportunityServiceLabel } from "@/lib/opportunity-service-presentation";
 import { RecordForm } from "./record-form";
 import { AuthorServiceForm } from "./author-service-form";
 import { Dialog, DialogContent } from "./ui/dialog";
@@ -123,6 +124,8 @@ export function Workbench({
     );
     return String(type?.name || service.custom_name || "Serviço");
   };
+  const presentationLabel = (row: Row, table: string) =>
+    table === "opportunity_services" ? opportunityServiceLabel(row, data) : labelOf(row, table);
   const coverUrl = (row: Row) => {
     const url = row.preview_url ?? row.cover_external_url;
     return typeof url === "string" && /^https?:\/\//.test(url) ? url : null;
@@ -575,13 +578,13 @@ export function Workbench({
                   )}
               </div>
               <Link className="record-title" href={href(table, row.id)}>
-                {table === "campaign_services"
-                  ? serviceLabel(row)
-                  : labelOf(row, table)}
+                {table === "campaign_services" ? serviceLabel(row) : presentationLabel(row, table)}
                 <ArrowUpRight size={16} />
               </Link>
               <p className="record-meta">
-                {table === "campaign_services"
+                {table === "opportunity_services"
+                  ? (() => { const context = opportunityServiceContext(row, data); return `${context.author} · ${context.book}`; })()
+                  : table === "campaign_services"
                   ? String(serviceBook?.title ?? "Livro não vinculado")
                   : table === "books" && className === "author-book-list"
                     ? [
@@ -597,13 +600,10 @@ export function Workbench({
               </p>
               {table === "opportunities" && (
                 <div className="opportunity-item-chips">
-                  {(data.opportunity_service_items ?? [])
+                  {(data.opportunity_services ?? [])
                     .filter((item) => item.opportunity_id === row.id)
                     .map((item) => {
-                      const source = item.item_kind === "package"
-                        ? data.service_packages?.find((pack) => pack.id === item.service_package_id)
-                        : data.service_types?.find((service) => service.id === item.service_type_id);
-                      return <span className="badge" key={item.id}>{String(source?.name ?? "Item")}{item.item_kind === "package" ? ` · ${item.duration_months} meses` : ""}</span>;
+                      return <span className="badge" key={item.id}>{opportunityServiceLabel(item, data)}{item.item_kind === "package" ? ` · ${item.duration_months} meses` : ""}</span>;
                     })}
                 </div>
               )}
@@ -782,7 +782,7 @@ export function Workbench({
             <Link className="eyebrow" href={href(m.table)}>
               ← {m.title}
             </Link>
-            <h1>{labelOf(r, m.table)}</h1>
+            <h1>{presentationLabel(r, m.table)}</h1>
             <p>{m.description}</p>
           </div>
           <button className="button" onClick={() => edit(m.table, r)}>

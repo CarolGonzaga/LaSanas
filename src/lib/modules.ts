@@ -436,7 +436,6 @@ export const modules: Module[] = [
         required: false,
         source: "authors",
       },
-      { name: "publisher_id", label: "Editora", type: "relation", required: false, source: "publishers" },
       {
         name: "publisher_id",
         label: "Editora",
