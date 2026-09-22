@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireContext } from "@/lib/workspace";
 import { parseRecord } from "@/lib/validation";
 import { moduleByTable } from "@/lib/modules";
+import { monthlyPlanPrice } from "@/lib/monthly-plan";
 
 export type Result = {
   ok: boolean;
@@ -305,7 +306,7 @@ export async function saveRecord(
         values.service_type_id = null;
         values.quantity = "1";
         values.duration_months = String(Math.max(1, Number(values.duration_months ?? pack?.duration_months ?? 3)));
-        values.unit_price = String(values.unit_price || pack?.package_price || 0);
+        values.unit_price = String(values.unit_price ?? monthlyPlanPrice(pack ?? {}));
         values.payment_terms = "monthly_full";
       }
     }

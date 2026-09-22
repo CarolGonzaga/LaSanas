@@ -17,6 +17,7 @@ import {
 } from "@/lib/modules";
 import type { Dataset } from "@/lib/workspace";
 import { today } from "@/lib/format";
+import { monthlyPlanPrice } from "@/lib/monthly-plan";
 import { opportunityServiceLabel } from "@/lib/opportunity-service-presentation";
 
 type Values = Record<string, string | boolean | string[]>;
@@ -320,7 +321,7 @@ export function RecordForm({
       })
       .map((item) => item.id);
     const duration = Number(pack.duration_months || 1);
-    const monthly = Number(pack.package_price || 0);
+    const monthly = monthlyPlanPrice(pack);
     const durationField = table === "opportunity_services" ? "duration_months" : "contract_duration_months";
     const priceField = table === "opportunity_services" ? "unit_price" : "monthly_value";
     setValue(durationField, String(duration), {
@@ -899,7 +900,7 @@ export function RecordForm({
                               : table === "campaigns" &&
                                   f.name === "service_package_id"
                                 ? (pack: Row) =>
-                                    `${String(pack.name)} · ${String(pack.duration_months)} meses · R$ ${String(pack.package_price)}/mês`
+                                    `${String(pack.name)} · ${String(pack.duration_months)} meses · R$ ${monthlyPlanPrice(pack)}/mês`
                                 : undefined
                           }
                           choices={data[f.source!] ? choices : undefined}

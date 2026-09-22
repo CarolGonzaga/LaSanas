@@ -773,7 +773,7 @@ export const modules: Module[] = [
       },
       {
         name: "package_price",
-        label: "Valor mensal",
+        label: "Valor total do plano (duração sugerida)",
         type: "money",
         required: true,
       },

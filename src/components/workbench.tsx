@@ -1544,6 +1544,12 @@ export function Workbench({
               .includes(query.toLowerCase()),
         ),
     );
+    if (mod.table === "service_occurrences") {
+      rows = rows.filter((row) => {
+        const service = data.opportunity_services?.find((item) => item.id === row.opportunity_service_id);
+        return service?.item_kind !== "package" || !!row.released_at;
+      });
+    }
     rows = rows.filter((r) =>
       filter === "archived"
         ? !!r.archived_at
