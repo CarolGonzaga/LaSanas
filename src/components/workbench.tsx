@@ -1129,13 +1129,11 @@ export function Workbench({
               relatedTab.table,
               relatedTab.rows,
               true,
-              m.table === "authors"
-                ? relatedTab.table === "books"
-                  ? "author-book-list"
-                  : relatedTab.table === "client_assets"
-                    ? "author-material-list"
-                    : ""
-                : "",
+              relatedTab.table === "books" && ["authors", "opportunities"].includes(m.table)
+                ? "author-book-list"
+                : m.table === "authors" && relatedTab.table === "client_assets"
+                  ? "author-material-list"
+                  : "",
             )}
           </section>
         ) : null}
