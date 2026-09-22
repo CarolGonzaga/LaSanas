@@ -26,3 +26,21 @@ export function opportunityServiceContext(service: Row, data: Dataset) {
     book: String(book?.title ?? "Livro não informado"),
   };
 }
+
+export function occurrenceLabel(occurrence: Row, data: Dataset) {
+  const name = String(
+    data.service_types?.find((item) => item.id === occurrence.service_type_id)
+      ?.name ?? "Serviço",
+  );
+  const matching = (data.service_occurrences ?? [])
+    .filter(
+      (item) =>
+        item.opportunity_service_id === occurrence.opportunity_service_id &&
+        item.service_type_id === occurrence.service_type_id &&
+        item.billing_cycle === occurrence.billing_cycle,
+    )
+    .sort((a, b) => Number(a.sequence_number) - Number(b.sequence_number));
+  if (matching.length < 2) return name;
+  const position = matching.findIndex((item) => item.id === occurrence.id) + 1;
+  return `${name} ${position > 0 ? position : 1}/${matching.length}`;
+}

@@ -37,7 +37,7 @@ import {
 } from "@/lib/modules";
 import type { Dataset } from "@/lib/workspace";
 import { date, money, today } from "@/lib/format";
-import { opportunityServiceContext, opportunityServiceLabel } from "@/lib/opportunity-service-presentation";
+import { occurrenceLabel, opportunityServiceContext, opportunityServiceLabel } from "@/lib/opportunity-service-presentation";
 import { RecordForm } from "./record-form";
 import { AuthorServiceForm } from "./author-service-form";
 import { Dialog, DialogContent } from "./ui/dialog";
@@ -116,7 +116,11 @@ export function Workbench({
     prefix + "/" + moduleByTable(table)!.route + (id ? "/" + id : "");
   const relatedLabel = (table: string, id: unknown) => {
     const r = data[table]?.find((r) => r.id === id);
-    return r ? labelOf(r, table) : "—";
+    return r
+      ? table === "opportunity_services"
+        ? opportunityServiceLabel(r, data)
+        : labelOf(r, table)
+      : "—";
   };
   const serviceLabel = (service: Row) => {
     const type = data.service_types?.find(
@@ -125,7 +129,11 @@ export function Workbench({
     return String(type?.name || service.custom_name || "Serviço");
   };
   const presentationLabel = (row: Row, table: string) =>
-    table === "opportunity_services" ? opportunityServiceLabel(row, data) : labelOf(row, table);
+    table === "opportunity_services"
+      ? opportunityServiceLabel(row, data)
+      : table === "service_occurrences"
+        ? occurrenceLabel(row, data)
+        : labelOf(row, table);
   const coverUrl = (row: Row) => {
     const url = row.preview_url ?? row.cover_external_url;
     return typeof url === "string" && /^https?:\/\//.test(url) ? url : null;
@@ -582,7 +590,13 @@ export function Workbench({
                 <ArrowUpRight size={16} />
               </Link>
               <p className="record-meta">
-                {table === "opportunity_services"
+                {table === "service_occurrences"
+                  ? (() => {
+                      const service = data.opportunity_services?.find((item) => item.id === row.opportunity_service_id);
+                      const context = service ? opportunityServiceContext(service, data) : null;
+                      return context ? `${context.author} · ${context.book}` : "Livro não informado";
+                    })()
+                  : table === "opportunity_services"
                   ? (() => { const context = opportunityServiceContext(row, data); return `${context.author} · ${context.book}`; })()
                   : table === "campaign_services"
                   ? String(serviceBook?.title ?? "Livro não vinculado")
