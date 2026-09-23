@@ -25,7 +25,7 @@ import {
 import { money, date, today } from "@/lib/format";
 import { StatusBadge } from "./status-badge";
 import { Dialog, DialogContent } from "./ui/dialog";
-import { buildWorkItems, type WorkItem } from "@/lib/work-items";
+import { buildWorkItems, selectTodayWorkItems, type WorkItem } from "@/lib/work-items";
 
 type Event = {
   id: string;
@@ -567,33 +567,27 @@ export function ProductionDashboard({
     ["completed", "Concluído", "Finalizados"],
     ["cancelled", "Cancelado", "Não serão executados"],
   ] as const;
-  const allProductionItems = buildWorkItems(data).filter((item) =>
+  const workItems = buildWorkItems(data);
+  const itemStatus = (item: WorkItem) => statusOverrides[item.id] ?? item.status;
+  const allProductionItems = workItems.filter((item) =>
     item.source === "service_occurrences" && item.released && item.assignedTo === userId,
   );
-  const terminal = (item: WorkItem) => ["completed", "cancelled"].includes(item.status);
+  const terminal = (item: WorkItem) => ["completed", "cancelled"].includes(itemStatus(item));
   const terminalBookKeys = new Set(
     Array.from(new Set(allProductionItems.map((item) => item.bookId || item.opportunityServiceId))).filter((key) => {
       const entries = allProductionItems.filter((item) => (item.bookId || item.opportunityServiceId) === key);
       return entries.length > 0 && entries.every(terminal);
     }),
   );
-  const currentItems = buildWorkItems(data).filter((item) => {
-    if (item.source === "service_occurrences" && !item.released) return false;
-    if (item.assignedTo !== userId) return false;
-    const completedToday = item.status === "completed" && dayOf(item.row.completed_at) === now;
-    const openDue = !["completed", "cancelled"].includes(item.status) && !!item.dueDate && item.dueDate <= now;
-    if (!completedToday && !openDue) return false;
-    if (item.source === "tasks") return true;
-    return (item.released || completedToday) && !terminalBookKeys.has(item.bookId || item.opportunityServiceId);
-  });
-  const futureItems = buildWorkItems(data).filter((item) => {
+  const currentItems = selectTodayWorkItems(workItems, userId, now, statusOverrides);
+  const futureItems = workItems.filter((item) => {
     if (
       item.source !== "service_occurrences" ||
       item.assignedTo !== userId ||
       !item.dueDate ||
       item.dueDate <= now ||
       item.scheduleStatus !== "scheduled" ||
-      ["completed", "cancelled"].includes(item.status) ||
+      terminal(item) ||
       !item.released
     )
       return false;
@@ -602,7 +596,6 @@ export function ProductionDashboard({
   const items = completedOnly
     ? allProductionItems.filter((item) => terminalBookKeys.has(item.bookId || item.opportunityServiceId))
     : boardView === "future" ? futureItems : currentItems;
-  const itemStatus = (item: WorkItem) => statusOverrides[item.id] ?? item.status;
   const open = items.filter((item) => !["completed", "cancelled"].includes(itemStatus(item)));
   const dueSummary = completedOnly
     ? [["Livros finalizados", terminalBookKeys.size], ["Execuções", items.length]] as const
@@ -644,6 +637,7 @@ export function ProductionDashboard({
       {!completedOnly && <div className="tabs production-tabs"><button className={boardView === "today" ? "selected" : ""} onClick={() => setBoardView("today")}>Meu dia</button><button className={boardView === "future" ? "selected" : ""} onClick={() => setBoardView("future")}>Projetos futuros <span>{futureItems.length}</span></button></div>}
       {!completedOnly && <p className="board-instructions"><GripVertical size={15} aria-hidden="true" /> Arraste um card entre as colunas para atualizar o status. Em telas touch, use o seletor no card.</p>}
       <section className="production-book-groups" aria-label="Execuções agrupadas por livro">
+        {!bookGroups.length && <p className="quiet-empty">{completedOnly ? "Nenhum livro finalizado." : boardView === "future" ? "Nenhuma execução futura agendada." : "Nenhuma pendência para hoje ou em atraso."}</p>}
         {bookGroups.map((group) => <details className="production-book-group" key={group.key}><summary><span><strong>{group.title}</strong><small>{group.author}</small></span><b>{group.items.length}{group.items.length === 1 ? " execução" : " execuções"}</b></summary><section className="production-board">
         {boardColumns.map(([status, label, description]) => {
           const rows = group.items.filter((item) => itemStatus(item) === status);

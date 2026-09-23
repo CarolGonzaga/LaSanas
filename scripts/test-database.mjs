@@ -9,7 +9,23 @@ const loadTs = async (path, replacements = {}) => {
 };
 const presentationUrl = await loadTs("../src/lib/opportunity-service-presentation.ts");
 const { occurrenceLabel, compareExecutionOrder } = await import(presentationUrl);
-const { getTodayWorkItems, buildWorkItems } = await import(await loadTs("../src/lib/work-items.ts", { "@/lib/opportunity-service-presentation": presentationUrl }));
+const { getTodayWorkItems, buildWorkItems, selectTodayWorkItems } = await import(await loadTs("../src/lib/work-items.ts", { "@/lib/opportunity-service-presentation": presentationUrl }));
+const todayFixture = buildWorkItems({opportunity_services:[{id:'plan'},{id:'other'},{id:'overdue'}],service_occurrences: [
+ {id:'done',opportunity_service_id:'plan',status:'completed',scheduled_date:'2026-09-23',completed_at:'2026-09-23T10:00:00Z'},
+ {id:'future',opportunity_service_id:'plan',status:'pending',scheduled_date:'2026-09-25'},
+ {id:'last-today',opportunity_service_id:'plan',status:'in_revision',scheduled_date:'2026-09-23'},
+ {id:'other-done',opportunity_service_id:'other',status:'completed',scheduled_date:'2026-09-23',completed_at:'2026-09-23T10:00:00Z'},
+ {id:'late',opportunity_service_id:'overdue',status:'in_progress',scheduled_date:'2026-09-22'},
+].map(row=>({...row,assigned_to:'user',released_at:'2026-09-01'}))});
+assert.deepEqual(selectTodayWorkItems(todayFixture,'user','2026-09-23').map(item=>item.id),['late','done','last-today']);
+// The final completion must hide the group immediately, before router.refresh.
+assert.deepEqual(selectTodayWorkItems(todayFixture,'user','2026-09-23',{'last-today':'completed'}).map(item=>item.id),['late']);
+assert.deepEqual(selectTodayWorkItems(todayFixture,'user','2026-09-23',{'last-today':'cancelled'}).map(item=>item.id),['late']);
+assert.deepEqual(selectTodayWorkItems(todayFixture,'another-user','2026-09-23'),[]);
+assert.deepEqual(selectTodayWorkItems(todayFixture.map(item=>({...item,released:false})),'user','2026-09-23'),[]);
+assert.ok(selectTodayWorkItems(todayFixture,'user','2026-09-25',{'last-today':'completed'}).some(item=>item.id==='future'));
+assert.equal(todayFixture.find(item=>item.id==='last-today').status,'in_revision');
+assert.ok(selectTodayWorkItems(todayFixture,'user','2026-09-23',{'last-today':'in_revision'}).some(item=>item.id==='last-today'));
 const unordered = [
  {id:'month3',billing_cycle:3,sequence_number:7},
  {id:'late',billing_cycle:1,sequence_number:1,scheduled_date:'2026-09-25'},

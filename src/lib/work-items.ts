@@ -21,5 +21,16 @@ export function buildWorkItems(data: Dataset): WorkItem[] {
   ].sort((a, b) => compareExecutionOrder(a.row, b.row));
 }
 export function getTodayWorkItems(data: Dataset, userId: string, currentDay: string) {
-  return buildWorkItems(data).filter((item) => item.assignedTo === userId && item.released && ((item.status === "completed" && dayOf(item.row.completed_at) === currentDay) || (!['completed','cancelled'].includes(item.status) && !!item.dueDate && item.dueDate <= currentDay))).sort((a,b) => a.dueDate.localeCompare(b.dueDate) || a.dueTime.localeCompare(b.dueTime));
+  return selectTodayWorkItems(buildWorkItems(data), userId, currentDay);
+}
+
+export function selectTodayWorkItems(items: WorkItem[], userId: string, currentDay: string, statusOverrides: Record<string, string> = {}) {
+  const status = (item: WorkItem) => statusOverrides[item.id] ?? item.status;
+  const groupKey = (item: WorkItem) => item.source === "tasks" ? "internal-tasks" : item.bookId || item.opportunityServiceId;
+  const eligible = items.filter((item) => item.assignedTo === userId && item.released);
+  const openDue = (item: WorkItem) => !["completed", "cancelled"].includes(status(item)) && !!item.dueDate && item.dueDate <= currentDay;
+  const activeGroups = new Set(eligible.filter(openDue).map(groupKey));
+  return eligible.filter((item) => activeGroups.has(groupKey(item)) && (
+    openDue(item) || (status(item) === "completed" && dayOf(item.row.completed_at) === currentDay)
+  )).sort((a, b) => compareExecutionOrder(a.row, b.row));
 }
