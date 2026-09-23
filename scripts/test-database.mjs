@@ -8,8 +8,20 @@ const loadTs = async (path, replacements = {}) => {
  return "data:text/javascript;base64," + Buffer.from(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText).toString("base64");
 };
 const presentationUrl = await loadTs("../src/lib/opportunity-service-presentation.ts");
-const { occurrenceLabel } = await import(presentationUrl);
-const { getTodayWorkItems } = await import(await loadTs("../src/lib/work-items.ts", { "@/lib/opportunity-service-presentation": presentationUrl }));
+const { occurrenceLabel, compareExecutionOrder } = await import(presentationUrl);
+const { getTodayWorkItems, buildWorkItems } = await import(await loadTs("../src/lib/work-items.ts", { "@/lib/opportunity-service-presentation": presentationUrl }));
+const unordered = [
+ {id:'month3',billing_cycle:3,sequence_number:7},
+ {id:'late',billing_cycle:1,sequence_number:1,scheduled_date:'2026-09-25'},
+ {id:'month2',billing_cycle:2,sequence_number:4},
+ {id:'early-pm',billing_cycle:3,sequence_number:8,scheduled_date:'2026-09-22',scheduled_time:'15:00'},
+ {id:'month1',billing_cycle:1,sequence_number:2},
+ {id:'early-am',billing_cycle:2,sequence_number:5,scheduled_date:'2026-09-22',scheduled_time:'09:00'},
+];
+const expectedOrder = ['early-am','early-pm','late','month1','month2','month3'];
+assert.deepEqual([...unordered].sort(compareExecutionOrder).map(row=>row.id),expectedOrder);
+assert.deepEqual(buildWorkItems({service_occurrences:unordered}).map(row=>row.id),expectedOrder);
+assert.deepEqual(getTodayWorkItems({service_occurrences:unordered.map(row=>({...row,assigned_to:'user',released_at:'2026-09-01',status:'pending'}))},'user','2026-09-25').map(row=>row.id),expectedOrder.slice(0,3));
 const { monthlyPlanPrice } = await import(await loadTs("../src/lib/monthly-plan.ts"));
 assert.equal(monthlyPlanPrice({ package_price: 570, duration_months: 3 }), 190);
 const db = new PGlite();

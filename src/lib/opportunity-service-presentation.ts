@@ -1,6 +1,25 @@
 import type { Row } from "@/lib/modules";
 import type { Dataset } from "@/lib/workspace";
 
+export function compareExecutionOrder(a: Row, b: Row) {
+  const aDate = String(a.scheduled_date || a.due_date || "").slice(0, 10);
+  const bDate = String(b.scheduled_date || b.due_date || "").slice(0, 10);
+  if (aDate !== bDate) {
+    if (!aDate) return 1;
+    if (!bDate) return -1;
+    return aDate.localeCompare(bDate);
+  }
+  if (aDate) {
+    const time = String(a.scheduled_time || a.due_time || "").localeCompare(
+      String(b.scheduled_time || b.due_time || ""),
+    );
+    if (time) return time;
+  }
+  return Number(a.billing_cycle ?? 0) - Number(b.billing_cycle ?? 0)
+    || Number(a.sequence_number ?? 0) - Number(b.sequence_number ?? 0)
+    || String(a.id).localeCompare(String(b.id));
+}
+
 export function opportunityServiceLabel(service: Row, data: Dataset) {
   if (service.item_kind === "package")
     return String(

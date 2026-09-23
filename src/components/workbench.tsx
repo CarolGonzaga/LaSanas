@@ -37,7 +37,7 @@ import {
 } from "@/lib/modules";
 import type { Dataset } from "@/lib/workspace";
 import { date, money, today } from "@/lib/format";
-import { occurrenceLabel, opportunityServiceContext, opportunityServiceLabel } from "@/lib/opportunity-service-presentation";
+import { compareExecutionOrder, occurrenceLabel, opportunityServiceContext, opportunityServiceLabel } from "@/lib/opportunity-service-presentation";
 import { RecordForm } from "./record-form";
 import { AuthorServiceForm } from "./author-service-form";
 import { Dialog, DialogContent } from "./ui/dialog";
@@ -504,6 +504,7 @@ export function Workbench({
   }
   function cards(table: string, rows: Row[], compact = false, className = "") {
     const m = moduleByTable(table)!;
+    if (table === "service_occurrences") rows = [...rows].sort(compareExecutionOrder);
     return rows.length ? (
       <div
         className={
