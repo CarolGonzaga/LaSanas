@@ -25,7 +25,7 @@ import {
 import { money, date, today } from "@/lib/format";
 import { StatusBadge } from "./status-badge";
 import { Dialog, DialogContent } from "./ui/dialog";
-import { buildWorkItems, selectTodayWorkItems, type WorkItem } from "@/lib/work-items";
+import { buildWorkItems, selectTodayWorkItems, selectFutureWorkItems, type WorkItem } from "@/lib/work-items";
 
 type Event = {
   id: string;
@@ -580,19 +580,7 @@ export function ProductionDashboard({
     }),
   );
   const currentItems = selectTodayWorkItems(workItems, userId, now, statusOverrides);
-  const futureItems = workItems.filter((item) => {
-    if (
-      item.source !== "service_occurrences" ||
-      item.assignedTo !== userId ||
-      !item.dueDate ||
-      item.dueDate <= now ||
-      item.scheduleStatus !== "scheduled" ||
-      terminal(item) ||
-      !item.released
-    )
-      return false;
-    return true;
-  });
+  const futureItems = selectFutureWorkItems(workItems, userId, now, statusOverrides);
   const items = completedOnly
     ? allProductionItems.filter((item) => terminalBookKeys.has(item.bookId || item.opportunityServiceId))
     : boardView === "future" ? futureItems : currentItems;
@@ -602,7 +590,7 @@ export function ProductionDashboard({
     : boardView === "future"
     ? [["Programados", open.length], ["Produção liberada", open.filter((item) => item.released).length]] as const
     : [["Atrasados", open.filter((item) => item.dueDate < now).length], ["Hoje", open.filter((item) => item.dueDate === now).length]] as const;
-  const dueLabel = (item: WorkItem) => boardView === "future" ? "Agendado" : item.dueDate < now ? "Atrasado" : item.dueDate === now ? "Para hoje" : "Concluído hoje";
+  const dueLabel = (item: WorkItem) => itemStatus(item) === "completed" ? "Concluído" : itemStatus(item) === "cancelled" ? "Cancelado" : boardView === "future" ? "Agendado" : item.dueDate < now ? "Atrasado" : "Para hoje";
   const moveItem = async (item: WorkItem, status: string) => {
     const previous = itemStatus(item);
     if (previous === status) return;
@@ -633,8 +621,8 @@ export function ProductionDashboard({
   }));
   return (
     <>
-      <div className="page-header production-header"><div><span className="eyebrow">{completedOnly ? "Histórico de produção" : "Meu dia"}</span><h1>{completedOnly ? "Finalizados" : "Quadro de produção"}</h1><p>{completedOnly ? "Livros cujas execuções já foram concluídas ou canceladas." : boardView === "future" ? "Planejamento de projetos futuros com data e cobrança iniciada." : "Serviços ativos e tarefas internas atribuídos a você: hoje, atrasados e concluídos hoje."}</p></div><div className="production-summary">{dueSummary.map(([label, count]) => <div key={label}><strong>{count}</strong><span>{label}</span></div>)}</div></div>
-      {!completedOnly && <div className="tabs production-tabs"><button className={boardView === "today" ? "selected" : ""} onClick={() => setBoardView("today")}>Meu dia</button><button className={boardView === "future" ? "selected" : ""} onClick={() => setBoardView("future")}>Projetos futuros <span>{futureItems.length}</span></button></div>}
+      <div className="page-header production-header"><div><span className="eyebrow">{completedOnly ? "Histórico de produção" : "Meu dia"}</span><h1>{completedOnly ? "Finalizados" : "Quadro de produção"}</h1><p>{completedOnly ? "Livros cujas execuções já foram concluídas ou canceladas." : boardView === "future" ? "Execuções agendadas e histórico dos livros com trabalho futuro." : "Serviços ativos e tarefas internas atribuídos a você: hoje, atrasados e concluídos hoje."}</p></div><div className="production-summary">{dueSummary.map(([label, count]) => <div key={label}><strong>{count}</strong><span>{label}</span></div>)}</div></div>
+      {!completedOnly && <div className="tabs production-tabs"><button className={boardView === "today" ? "selected" : ""} onClick={() => setBoardView("today")}>Meu dia</button><button className={boardView === "future" ? "selected" : ""} onClick={() => setBoardView("future")}>Projetos futuros <span>{futureItems.filter((item) => !terminal(item)).length}</span></button></div>}
       {!completedOnly && <p className="board-instructions"><GripVertical size={15} aria-hidden="true" /> Arraste um card entre as colunas para atualizar o status. Em telas touch, use o seletor no card.</p>}
       <section className="production-book-groups" aria-label="Execuções agrupadas por livro">
         {!bookGroups.length && <p className="quiet-empty">{completedOnly ? "Nenhum livro finalizado." : boardView === "future" ? "Nenhuma execução futura agendada." : "Nenhuma pendência para hoje ou em atraso."}</p>}

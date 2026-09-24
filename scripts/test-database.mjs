@@ -9,7 +9,7 @@ const loadTs = async (path, replacements = {}) => {
 };
 const presentationUrl = await loadTs("../src/lib/opportunity-service-presentation.ts");
 const { occurrenceLabel, compareExecutionOrder } = await import(presentationUrl);
-const { getTodayWorkItems, buildWorkItems, selectTodayWorkItems } = await import(await loadTs("../src/lib/work-items.ts", { "@/lib/opportunity-service-presentation": presentationUrl }));
+const { getTodayWorkItems, buildWorkItems, selectTodayWorkItems, selectFutureWorkItems } = await import(await loadTs("../src/lib/work-items.ts", { "@/lib/opportunity-service-presentation": presentationUrl }));
 const todayFixture = buildWorkItems({opportunity_services:[{id:'plan'},{id:'other'},{id:'overdue'}],service_occurrences: [
  {id:'done',opportunity_service_id:'plan',status:'completed',scheduled_date:'2026-09-23',completed_at:'2026-09-23T10:00:00Z'},
  {id:'future',opportunity_service_id:'plan',status:'pending',scheduled_date:'2026-09-25'},
@@ -26,6 +26,13 @@ assert.deepEqual(selectTodayWorkItems(todayFixture.map(item=>({...item,released:
 assert.ok(selectTodayWorkItems(todayFixture,'user','2026-09-25',{'last-today':'completed'}).some(item=>item.id==='future'));
 assert.equal(todayFixture.find(item=>item.id==='last-today').status,'in_revision');
 assert.ok(selectTodayWorkItems(todayFixture,'user','2026-09-23',{'last-today':'in_revision'}).some(item=>item.id==='last-today'));
+const futureFixture = todayFixture.map(item=>({...item,scheduleStatus:'scheduled'}));
+assert.deepEqual(selectFutureWorkItems(futureFixture,'user','2026-09-23').map(item=>item.id),['done','future']);
+assert.deepEqual(selectFutureWorkItems(futureFixture,'user','2026-09-23',{'last-today':'completed'}).map(item=>item.id),['done','last-today','future']);
+assert.deepEqual(selectFutureWorkItems(futureFixture,'user','2026-09-23',{'future':'completed'}),[]);
+assert.deepEqual(selectFutureWorkItems(futureFixture,'other-user','2026-09-23'),[]);
+assert.deepEqual(selectFutureWorkItems(futureFixture.map(item=>({...item,released:false})),'user','2026-09-23'),[]);
+assert.equal(selectFutureWorkItems(futureFixture,'user','2026-09-23',{'done':'pending'}).some(item=>item.id==='done'),false);
 const unordered = [
  {id:'month3',billing_cycle:3,sequence_number:7},
  {id:'late',billing_cycle:1,sequence_number:1,scheduled_date:'2026-09-25'},

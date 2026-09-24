@@ -34,3 +34,14 @@ export function selectTodayWorkItems(items: WorkItem[], userId: string, currentD
     openDue(item) || (status(item) === "completed" && dayOf(item.row.completed_at) === currentDay)
   )).sort((a, b) => compareExecutionOrder(a.row, b.row));
 }
+
+export function selectFutureWorkItems(items: WorkItem[], userId: string, currentDay: string, statusOverrides: Record<string, string> = {}) {
+  const status = (item: WorkItem) => statusOverrides[item.id] ?? item.status;
+  const groupKey = (item: WorkItem) => item.bookId || item.opportunityServiceId;
+  const eligible = items.filter((item) => item.source === "service_occurrences" && item.assignedTo === userId && item.released);
+  const future = (item: WorkItem) => !!item.dueDate && item.dueDate > currentDay && item.scheduleStatus === "scheduled" && !["completed", "cancelled"].includes(status(item));
+  const futureGroups = new Set(eligible.filter(future).map(groupKey));
+  return eligible.filter((item) => futureGroups.has(groupKey(item)) && (
+    future(item) || ["completed", "cancelled"].includes(status(item))
+  )).sort((a, b) => compareExecutionOrder(a.row, b.row));
+}
