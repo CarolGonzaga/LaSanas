@@ -86,6 +86,7 @@ export function AppShell({
             label: "PRINCIPAL",
             links: [
               ["dashboard", "Meu dia", LayoutDashboard],
+              ["agenda", "Agenda", CalendarDays],
               ["finalizados", "Finalizados", CheckCircle2],
               ["configuracoes", "Configurações", Settings],
             ],

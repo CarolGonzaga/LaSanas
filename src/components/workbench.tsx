@@ -39,6 +39,7 @@ import type { Dataset } from "@/lib/workspace";
 import { date, money, today } from "@/lib/format";
 import { compareExecutionOrder, occurrenceLabel, opportunityServiceContext, opportunityServiceLabel } from "@/lib/opportunity-service-presentation";
 import { RecordForm } from "./record-form";
+import { ProductionCalendar } from "./production-calendar";
 import { AuthorServiceForm } from "./author-service-form";
 import { Dialog, DialogContent } from "./ui/dialog";
 import { ConfirmDialog } from "./ui/confirm-dialog";
@@ -1518,7 +1519,7 @@ export function Workbench({
   else if (route === "finalizados")
     content = <ProductionDashboard data={data} userId={userId} onStatus={updateProductionStatus} completedOnly />;
   else if (route === "agenda")
-    content = <UnifiedAgenda data={data} edit={edit} />;
+    content = homeView === "production" ? <ProductionCalendar data={data} userId={userId} /> : <UnifiedAgenda data={data} edit={edit} />;
   else if (route === "servicos-contratados")
     content = <ServicesHub data={data} edit={edit} />;
   else if (route === "configuracoes") content = settings();
