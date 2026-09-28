@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus,
@@ -37,7 +37,7 @@ import {
 } from "@/lib/modules";
 import type { Dataset } from "@/lib/workspace";
 import { date, money, today } from "@/lib/format";
-import { compareExecutionOrder, occurrenceLabel, opportunityServiceContext, opportunityServiceLabel } from "@/lib/opportunity-service-presentation";
+import { compareExecutionOrder, createOccurrenceLabels, opportunityServiceContext, opportunityServiceLabel } from "@/lib/opportunity-service-presentation";
 import { RecordForm } from "./record-form";
 import { ProductionCalendar } from "./production-calendar";
 import { AuthorServiceForm } from "./author-service-form";
@@ -88,6 +88,8 @@ export function Workbench({
   const [query, setQuery] = useState(""),
     [filter, setFilter] = useState(""),
     [tab, setTab] = useState("overview");
+  const [listLimit, setListLimit] = useState(48);
+  const occurrenceLabels = useMemo(() => createOccurrenceLabels(data), [data]);
   const [exportAuthors, setExportAuthors] = useState(true);
   const [exportPublishers, setExportPublishers] = useState(true);
   const [exportFormat, setExportFormat] = useState("csv");
@@ -133,7 +135,7 @@ export function Workbench({
     table === "opportunity_services"
       ? opportunityServiceLabel(row, data)
       : table === "service_occurrences"
-        ? occurrenceLabel(row, data)
+        ? occurrenceLabels.get(row.id) ?? "Serviço"
         : labelOf(row, table);
   const coverUrl = (row: Row) => {
     const url = row.preview_url ?? row.cover_external_url;
@@ -1556,6 +1558,7 @@ export function Workbench({
         : !r.archived_at &&
           (!filter || String(r.status ?? r.active) === filter),
     );
+    if (mod.table === "service_occurrences") rows.sort(compareExecutionOrder);
     const statuses = mod.fields.find((f) => f.name === "status")?.source;
     content = (
       <>
@@ -1614,13 +1617,13 @@ export function Workbench({
                   aria-label="Buscar registros"
                   placeholder={"Buscar em " + mod.title.toLowerCase() + "…"}
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={(e) => { setQuery(e.target.value); setListLimit(48); }}
                 />
               </div>
               <select
                 aria-label="Filtrar status"
                 value={filter}
-                onChange={(e) => setFilter(e.target.value)}
+                onChange={(e) => { setFilter(e.target.value); setListLimit(48); }}
               >
                 <option value="">Todos os atuais</option>
                 {statuses &&
@@ -1633,7 +1636,8 @@ export function Workbench({
               </select>
               <span className="muted">{rows.length} registros</span>
             </div>
-            {cards(mod.table, rows)}
+            {cards(mod.table, rows.slice(0, listLimit))}
+            {rows.length > listLimit && <button className="button secondary" onClick={() => setListLimit(value => value + 48)}>Mostrar mais ({rows.length - listLimit} restantes)</button>}
           </>
         )}
       </>

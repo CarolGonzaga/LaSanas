@@ -46,40 +46,42 @@ export function opportunityServiceContext(service: Row, data: Dataset) {
   };
 }
 
-export function occurrenceLabel(occurrence: Row, data: Dataset) {
-  const name = String(
-    data.service_types?.find((item) => item.id === occurrence.service_type_id)
-      ?.name ?? "Serviço",
-  );
-  const matching = (data.service_occurrences ?? [])
-    .filter(
-      (item) =>
-        item.opportunity_service_id === occurrence.opportunity_service_id &&
-        item.service_type_id === occurrence.service_type_id,
-    )
-    .sort((a, b) => Number(a.sequence_number) - Number(b.sequence_number));
-  const service = data.opportunity_services?.find(
-    (item) => item.id === occurrence.opportunity_service_id,
-  );
-  const month = Number(occurrence.billing_cycle);
-  const duration = Number(service?.duration_months);
-  if (service?.item_kind === "package" && month > 0 && duration > 0) {
-    // Count each service within its month: sequence_number also includes the
-    // other services in the package. The denominator covers the whole contract,
-    // even when the caller only has the occurrences of one billing cycle.
-    const byMonth = new Map<number, Row[]>();
-    for (const item of matching) {
-      const cycle = Number(item.billing_cycle);
-      byMonth.set(cycle, [...(byMonth.get(cycle) ?? []), item]);
-    }
-    const currentMonth = byMonth.get(month) ?? [];
-    const monthlyQuantity = Math.max(1, ...Array.from(byMonth.values(), (items) => items.length));
-    const monthlyPosition = currentMonth.findIndex((item) => item.id === occurrence.id) + 1;
-    const position = (month - 1) * monthlyQuantity + Math.max(1, monthlyPosition);
-    const total = Math.max(matching.length, monthlyQuantity * duration);
-    return `${name} ${position}/${total} · Mês ${month}`;
+export function createOccurrenceLabels(data: Dataset) {
+  const names = new Map((data.service_types ?? []).map(item => [item.id, String(item.name)]));
+  const services = new Map((data.opportunity_services ?? []).map(item => [item.id, item]));
+  const groups = new Map<string, Row[]>();
+  const labels = new Map<string, string>();
+  for (const item of data.service_occurrences ?? []) {
+    const key = JSON.stringify([item.opportunity_service_id, item.service_type_id]);
+    const group = groups.get(key) ?? [];
+    group.push(item);
+    groups.set(key, group);
   }
-  if (matching.length < 2) return name;
-  const position = matching.findIndex((item) => item.id === occurrence.id) + 1;
-  return `${name} ${position > 0 ? position : 1}/${matching.length}`;
+  for (const group of groups.values()) {
+    group.sort((a,b) => Number(a.sequence_number) - Number(b.sequence_number));
+    const counts = new Map<number, number>();
+    for (const item of group) {
+      const month = Number(item.billing_cycle);
+      counts.set(month, (counts.get(month) ?? 0) + 1);
+    }
+    const monthlyQuantity = Math.max(1, ...counts.values());
+    const positions = new Map<number, number>();
+    group.forEach((item, index) => {
+      const name = names.get(String(item.service_type_id)) ?? "Serviço";
+      const service = services.get(String(item.opportunity_service_id));
+      const month = Number(item.billing_cycle);
+      const duration = Number(service?.duration_months);
+      const position = (positions.get(month) ?? 0) + 1;
+      positions.set(month, position);
+      labels.set(item.id, service?.item_kind === "package" && month > 0 && duration > 0
+        ? `${name} ${(month - 1) * monthlyQuantity + position}/${Math.max(group.length, monthlyQuantity * duration)} · Mês ${month}`
+        : group.length > 1 ? `${name} ${index + 1}/${group.length}` : name);
+    });
+  }
+  return labels;
+}
+
+export function occurrenceLabel(occurrence: Row, data: Dataset) {
+  return createOccurrenceLabels(data).get(occurrence.id)
+    ?? String(data.service_types?.find(item => item.id === occurrence.service_type_id)?.name ?? "Serviço");
 }

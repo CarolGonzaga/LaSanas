@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ArrowUpRight,
   Plus,
@@ -567,7 +567,7 @@ export function ProductionDashboard({
     ["completed", "Concluído", "Finalizados"],
     ["cancelled", "Cancelado", "Não serão executados"],
   ] as const;
-  const workItems = buildWorkItems(data);
+  const workItems = useMemo(() => buildWorkItems(data), [data]);
   const itemStatus = (item: WorkItem) => statusOverrides[item.id] ?? item.status;
   const allProductionItems = workItems.filter((item) =>
     item.source === "service_occurrences" && item.released && item.assignedTo === userId,

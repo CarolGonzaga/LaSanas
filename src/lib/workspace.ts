@@ -80,6 +80,7 @@ export async function loadWorkspace() {
       data: {} as Dataset,
       error: ctx.error,
       userId: ctx.user.id,
+      loadedAt: Date.now(),
     };
   const [results, membersResult, updatesResult] = await Promise.all([
     Promise.all(
@@ -203,5 +204,6 @@ export async function loadWorkspace() {
     userId: ctx.user.id,
     data: dataset,
     error: null,
+    loadedAt: Date.now(),
   };
 }
