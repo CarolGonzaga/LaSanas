@@ -11,6 +11,7 @@ import {
   Building2,
   BookOpen,
   CalendarDays,
+  Layers,
   Wallet,
   CheckSquare,
   CheckCircle2,
@@ -42,6 +43,7 @@ const groups = [
   {
     label: "OPERAÇÃO",
     links: [
+      ["servicos-contratados", "Serviços", Layers],
       ["agenda", "Agenda", CalendarDays],
       ["tarefas", "Tarefas", CheckSquare],
       ["leitura-coletiva", "Leitura coletiva", BookOpen],
@@ -238,6 +240,7 @@ export function AppShell({
                 ? homeView === "production"
                   ? "Meu dia"
                   : "Visão geral"
+                : path.endsWith("/servicos-contratados") ? "Serviços"
                 : (modules.find((m) => path.includes("/" + m.route))?.title ??
                   "Configurações")}
             </strong>

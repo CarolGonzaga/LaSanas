@@ -13,7 +13,7 @@ export default async function ModulePage({
   if (route === "clientes") redirect("/campanhas");
   if (
     !moduleByRoute(route) &&
-    !["dashboard", "agenda", "configuracoes", "finalizados"].includes(route)
+    !["dashboard", "agenda", "configuracoes", "finalizados", "servicos-contratados"].includes(route)
   )
     notFound();
   if (segments && segments.length > 1) notFound();
