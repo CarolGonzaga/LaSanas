@@ -43,7 +43,7 @@ const groups = [
   {
     label: "OPERAÇÃO",
     links: [
-      ["servicos-contratados", "Serviços", Layers],
+      ["servicos", "Serviços", Layers],
       ["agenda", "Agenda", CalendarDays],
       ["tarefas", "Tarefas", CheckSquare],
       ["leitura-coletiva", "Leitura coletiva", BookOpen],

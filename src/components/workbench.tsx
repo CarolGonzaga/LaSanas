@@ -38,6 +38,8 @@ import {
 import type { Dataset } from "@/lib/workspace";
 import { date, money, today } from "@/lib/format";
 import { compareExecutionOrder, createOccurrenceLabels, opportunityServiceContext, opportunityServiceLabel } from "@/lib/opportunity-service-presentation";
+import { TaskList } from "./task-list";
+import { ServiceCatalog } from "./service-catalog";
 import { RecordForm } from "./record-form";
 import { ProductionCalendar } from "./production-calendar";
 import { AuthorServiceForm } from "./author-service-form";
@@ -765,6 +767,9 @@ export function Workbench({
     }
     if (["authors", "publishers"].includes(m.table)) {
       const field = m.table === "authors" ? "author_id" : "publisher_id";
+      for (const group of rel.filter(group => ["collective_reading_slots", "book_club_slots"].includes(group.table))) {
+        group.rows = (data[group.table] ?? []).filter(slot => slot[field] === r.id || (data.books ?? []).some(book => book.id === slot.book_id && book[field] === r.id));
+      }
       const opportunityIds =
         m.table === "authors"
           ? (data.opportunities ?? [])
@@ -1047,8 +1052,9 @@ export function Workbench({
             readOnly={readOnly}
           />
         ) : relatedTab?.table === "communication_logs" &&
-          m.table === "authors" ? (
+          ["authors", "publishers"].includes(m.table) ? (
           <section className="author-communications">
+            {m.table === "publishers" && <><button className="button small" onClick={() => edit("communication_logs", { publisher_id: r.id, responsible_user_id: userId })}>Adicionar comunicação</button>{cards("communication_logs", relatedTab.rows.filter(log => !log.opportunity_id), true)}</>}
             <div className="section-heading">
               <div>
                 <h2>Comunicações</h2>
@@ -1059,7 +1065,7 @@ export function Workbench({
               {(data.opportunities ?? [])
                 .filter(
                   (opportunity) =>
-                    opportunity.author_id === r.id && !opportunity.archived_at,
+                    opportunity[m.table === "authors" ? "author_id" : "publisher_id"] === r.id && !opportunity.archived_at,
                 )
                 .sort((a, b) =>
                   String(b.created_at).localeCompare(String(a.created_at)),
@@ -1075,10 +1081,10 @@ export function Workbench({
             </div>
             {!(data.opportunities ?? []).some(
               (opportunity) =>
-                opportunity.author_id === r.id && !opportunity.archived_at,
+                opportunity[m.table === "authors" ? "author_id" : "publisher_id"] === r.id && !opportunity.archived_at,
             ) && (
               <p className="quiet-empty">
-                Nenhuma oportunidade cadastrada para esta autora.
+                Nenhuma oportunidade cadastrada para este contato.
               </p>
             )}
           </section>
@@ -1102,6 +1108,7 @@ export function Workbench({
                   onClick={() =>
                     edit(relatedTab.table, {
                       [relatedTab.field]: r.id,
+                      ...(relatedTab.table === "opportunities" ? { contact_type: m.table === "publishers" ? "publisher" : "author" } : {}),
                       ...(["authors", "publishers"].includes(m.table) &&
                       relatedTab.table === "communication_logs"
                         ? { responsible_user_id: userId }
@@ -1133,7 +1140,7 @@ export function Workbench({
               relatedTab.table,
               relatedTab.rows,
               true,
-              relatedTab.table === "books" && ["authors", "opportunities"].includes(m.table)
+              relatedTab.table === "books" && ["authors", "publishers", "opportunities"].includes(m.table)
                 ? "author-book-list"
                 : m.table === "authors" && relatedTab.table === "client_assets"
                   ? "author-material-list"
@@ -1524,6 +1531,10 @@ export function Workbench({
     content = homeView === "production" ? <ProductionCalendar data={data} userId={userId} /> : <UnifiedAgenda data={data} edit={edit} />;
   else if (route === "servicos-contratados")
     content = <ServicesHub data={data} edit={edit} />;
+  else if (route === "servicos" && !id)
+    content = <ServiceCatalog data={data} edit={edit} prefix={prefix} />;
+  else if (route === "tarefas" && !id)
+    content = <TaskList data={data} userId={userId} edit={edit} readOnly={readOnly} onDelete={row => setConfirm({ table: "tasks", row })} />;
   else if (route === "configuracoes") content = settings();
   else if (mod && record) content = detail(mod, record);
   else if (mod && id)

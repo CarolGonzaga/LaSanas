@@ -575,7 +575,6 @@ export function RecordForm({
                 values.media_kit_sent !== "yes"
               )
                 return null;
-              if (table === "opportunities" && f.name === "author_id" && values.contact_type === "publisher") return null;
               if (table === "opportunities" && f.name === "publisher_id" && values.contact_type === "author") return null;
               if (table === "opportunity_services" && f.name === "service_type_id" && values.item_kind !== "service") return null;
               if (table === "opportunity_services" && ["service_package_id", "duration_months", "selected_package_item_ids"].includes(f.name) && values.item_kind !== "package") return null;
@@ -591,11 +590,11 @@ export function RecordForm({
                 choices = choices.filter(
                   (p) => p.publisher_id === values.publisher_id,
                 );
-              if (f.name === "book_id" && values.author_id && values.contact_type !== "publisher")
+              if (f.name === "book_id" && values.author_id)
                 choices = choices.filter(
                   (p) => p.author_id === values.author_id,
                 );
-              if (f.name === "book_id" && values.contact_type === "publisher" && values.publisher_id)
+              if (f.name === "book_id" && values.publisher_id && (values.contact_type === "publisher" || ["collective_reading_slots", "book_club_slots"].includes(table)))
                 choices = choices.filter((p) => p.publisher_id === values.publisher_id);
               if (
                 table === "communication_logs" &&

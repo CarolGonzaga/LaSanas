@@ -285,6 +285,7 @@ export async function saveRecord(
         checked(error);
         if (kind === "author" && book?.author_id !== values.author_id) throw new Error("O livro selecionado deve pertencer à autora.");
         if (kind === "publisher" && book?.publisher_id !== values.publisher_id) throw new Error("O livro selecionado deve pertencer à editora.");
+        if (values.author_id && book?.author_id !== values.author_id) throw new Error("O livro selecionado deve pertencer à autora.");
         values.author_id = String(book?.author_id ?? "");
         values.name = `${String((await db.from("authors").select("name").eq("id", book?.author_id).single()).data?.name ?? "Autora")} — ${String(book?.title ?? "Livro")}`;
       } else {
@@ -690,6 +691,10 @@ export async function businessAction(
         .update({ payment_override_reason: reason })
         .eq("id", id)
         .eq("workspace_id", workspace.id);
+      checked(error);
+    } else if (action === "task-priority") {
+      const priority = z.enum(["medium", "high", "low"]).parse(args.priority);
+      const { error } = await db.from("tasks").update({ priority }).eq("id", id).eq("workspace_id", workspace.id);
       checked(error);
     } else if (action === "complete-task" || action === "complete-occurrence") {
       const table =

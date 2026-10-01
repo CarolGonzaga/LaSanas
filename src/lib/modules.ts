@@ -515,6 +515,7 @@ export const modules: Module[] = [
         required: false,
         source: "contact",
       },
+      { name: "publisher_id", label: "Editora", type: "relation", required: false, source: "publishers" },
       {
         name: "author_id",
         label: "Autora",
@@ -994,6 +995,7 @@ export const modules: Module[] = [
         required: false,
         source: "authors",
       },
+      { name: "publisher_id", label: "Editora", type: "relation", required: false, source: "publishers" },
       {
         name: "book_id",
         label: "Livro",
@@ -1061,6 +1063,8 @@ export const modules: Module[] = [
         required: true,
         source: "club",
       },
+      { name: "author_id", label: "Autora", type: "relation", required: false, source: "authors" },
+      { name: "publisher_id", label: "Editora", type: "relation", required: false, source: "publishers" },
       {
         name: "book_id",
         label: "Livro",
